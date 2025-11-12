@@ -11,13 +11,13 @@ const StudentTable = ({
   onExcelUpload,
   isExcelUploaded,
   loading,
-  // Pagination Props
   currentPage,
   totalPages,
   totalStudents,
   itemsPerPage,
   onPageChange,
   onItemsPerPageChange,
+  currentClass // ✅ ADDED: Class prop
 }) => {
   const fileInputRef = useRef(null);
 
@@ -45,22 +45,6 @@ const StudentTable = ({
   const getScanTime = (scanTime) => {
     if (!scanTime) return "";
     return new Date(scanTime).toLocaleTimeString();
-  };
-
-  const getPDFTime = (pdfGeneratedAt) => {
-    if (!pdfGeneratedAt) return "";
-    return new Date(pdfGeneratedAt).toLocaleTimeString();
-  };
-
-  const formatFileSize = (bytes) => {
-    if (!bytes) return "";
-    if (bytes === 0) return "0 Bytes";
-
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   // Generate page numbers for pagination
@@ -97,10 +81,15 @@ const StudentTable = ({
     <div className="student-table-container">
       {/* Excel Upload Section */}
       <div className="excel-upload-section">
+        <div className="class-info-badge">
+          🎯 Current Class: <strong>{currentClass && currentClass !== 'default' ? currentClass.replace(/_/g, ' ') : 'Not Selected'}</strong>
+        </div>
+        
         <button
           className="excel-upload-btn"
           onClick={handleExcelUploadClick}
           title="Upload Excel file with Roll Numbers and Subject Details"
+          disabled={!currentClass || currentClass === 'default'}
         >
           📊 Upload Excel File
         </button>
@@ -112,7 +101,9 @@ const StudentTable = ({
           style={{ display: "none" }}
         />
         <span className="upload-hint">
-          Upload Excel with columns: Roll Number, Subject Code, Subject Name
+          {!currentClass || currentClass === 'default' 
+            ? "Please select or create a class first" 
+            : "Upload Excel with columns: Roll Number, Subject Code, Subject Name"}
         </span>
 
         {students.length > 0 && (
@@ -197,11 +188,20 @@ const StudentTable = ({
         {students.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📊</div>
-            <h3>No Students Data</h3>
-            <p>Please upload an Excel file to get started</p>
+            <h3>
+              {!currentClass || currentClass === 'default' 
+                ? "Please Select or Create a Class" 
+                : "No Students Data"}
+            </h3>
+            <p>
+              {!currentClass || currentClass === 'default' 
+                ? "Choose a class from the dropdown above to get started" 
+                : "Please upload an Excel file to get started"}
+            </p>
             <button
               className="excel-upload-btn empty-btn"
               onClick={handleExcelUploadClick}
+              disabled={!currentClass || currentClass === 'default'}
             >
               📊 Upload Excel File
             </button>
@@ -307,7 +307,7 @@ const StudentTable = ({
                       <option value="Pending">Pending</option>
                       <option value="Present">Present</option>
                       <option value="Absent">Absent</option>
-                      <option value="Missing">Missing</option> {/* ✅ ADDED: Missing option */}
+                      <option value="Missing">Missing</option>
                     </select>
                   </td>
 
@@ -466,13 +466,13 @@ const StudentTable = ({
         <div className="table-footer">
           <div className="footer-info">
             <span className="footer-item">
+              🎯 Current Class: <strong>{currentClass.replace(/_/g, ' ')}</strong>
+            </span>
+            <span className="footer-item">
               💡 Tip: Scan copies first, then download PDF
             </span>
             <span className="footer-item">
               📁 PDFs are automatically generated after scanning
-            </span>
-            <span className="footer-item">
-              📝 Use "Missing" status for students who didn't submit copies
             </span>
           </div>
         </div>
@@ -480,4 +480,5 @@ const StudentTable = ({
     </div>
   );
 };
+
 export default StudentTable;

@@ -578,7 +578,7 @@ const PhotoCapture = ({
                   </div>
                 </div>
               )}
-
+                
               <div className="capture-main">
                 {isProcessing ? (
                   <div className="processing-overlay">

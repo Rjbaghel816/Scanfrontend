@@ -47,36 +47,51 @@ class ApiService {
     }
   }
 
-  // Students API
+  // ✅ NEW: Get all available classes
+  async getClasses() {
+    return this.request('/students/classes');
+  }
+
+  // ✅ UPDATED: Get students with class parameter
   async getStudents(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/students?${query}`);
   }
 
-  async getStudent(studentId) {
-    return this.request(`/students/${studentId}`);
+  async getStudent(studentId, className = 'default') {
+    const query = new URLSearchParams({ className }).toString();
+    return this.request(`/students/${studentId}?${query}`);
   }
 
-  // ✅ ADDED: updateStudentStatus function
-  async updateStudentStatus(studentId, status, remark = '') {
+  // ✅ UPDATED: Update student status with class
+  async updateStudentStatus(studentId, status, remark = '', className = 'default') {
     return this.request(`/students/${studentId}/status`, {
       method: 'PATCH',
-      body: { status, remark }
+      body: { status, remark, className }
     });
   }
 
-  // ✅ ADDED: updateStudentRemark function
-  async updateStudentRemark(studentId, remark) {
+  // ✅ UPDATED: Update student remark with class
+  async updateStudentRemark(studentId, remark, className = 'default') {
     return this.request(`/students/${studentId}/remark`, {
       method: 'PATCH',
-      body: { remark }
+      body: { remark, className }
     });
   }
 
-  // Excel Upload
-  async uploadExcel(formData) {
+  // ✅ FIXED: Excel Upload with proper class name handling
+  async uploadExcelWithClass(formData, className = 'default') {
     try {
-      console.log('📤 Uploading Excel file via API...');
+      console.log('📤 Uploading Excel file for class:', className);
+      
+      // ✅ FIX: Remove duplicate className and add only once
+      if (formData.has('className')) {
+        formData.delete('className');
+      }
+      
+      if (className && className !== 'default') {
+        formData.append('className', className);
+      }
       
       const response = await fetch(`${API_BASE}/students/upload-excel`, {
         method: 'POST',
@@ -96,20 +111,32 @@ class ApiService {
     }
   }
 
-  async deleteStudent(studentId) {
-    return this.request(`/students/${studentId}`, {
+  // ✅ UPDATED: Delete student with class
+  async deleteStudent(studentId, className = 'default') {
+    const query = new URLSearchParams({ className }).toString();
+    return this.request(`/students/${studentId}?${query}`, {
       method: 'DELETE'
     });
   }
 
-  async deleteAllStudents() {
-    return this.request('/students', {
+  async deleteAllStudents(className = 'default') {
+    const query = new URLSearchParams({ className }).toString();
+    return this.request(`/students?${query}`, {
       method: 'DELETE'
     });
   }
 
-  // Uploads API
-  async uploadScans(studentId, formData) {
+  // ✅ FIXED: Upload scans with class
+  async uploadScans(studentId, formData, className = 'default') {
+    // ✅ FIX: Remove duplicate className and add only once
+    if (formData.has('className')) {
+      formData.delete('className');
+    }
+    
+    if (className && className !== 'default') {
+      formData.append('className', className);
+    }
+
     const response = await fetch(`${API_BASE}/upload/scan/${studentId}`, {
       method: 'POST',
       body: formData,
@@ -123,16 +150,19 @@ class ApiService {
     return response.json();
   }
 
-  async deleteScans(studentId) {
-    return this.request(`/upload/scan/${studentId}`, {
+  // ✅ UPDATED: Delete scans with class
+  async deleteScans(studentId, className = 'default') {
+    const query = new URLSearchParams({ className }).toString();
+    return this.request(`/upload/scan/${studentId}?${query}`, {
       method: 'DELETE'
     });
   }
 
-  // PDF API
-  async generatePDF(studentId) {
+  // ✅ UPDATED: Generate PDF with class
+  async generatePDF(studentId, className = 'default') {
     try {
-      const response = await fetch(`${API_BASE}/students/${studentId}/generate-pdf`);
+      const query = new URLSearchParams({ className }).toString();
+      const response = await fetch(`${API_BASE}/students/${studentId}/generate-pdf?${query}`);
       
       if (!response.ok) {
         const error = await response.json();
@@ -171,9 +201,11 @@ class ApiService {
     }
   }
 
-  async downloadPDF(studentId) {
+  // ✅ UPDATED: Download PDF with class
+  async downloadPDF(studentId, className = 'default') {
     try {
-      const response = await fetch(`${API_BASE}/upload/pdf/${studentId}`);
+      const query = new URLSearchParams({ className }).toString();
+      const response = await fetch(`${API_BASE}/upload/pdf/${studentId}?${query}`);
       
       if (!response.ok) {
         const error = await response.json();
@@ -210,9 +242,32 @@ class ApiService {
     }
   }
 
-  // Stats API
-  async getStats() {
-    return this.request('/students/stats/summary');
+  // ✅ UPDATED: Get stats with class
+  async getStats(className = 'default') {
+    const query = new URLSearchParams({ className }).toString();
+    return this.request(`/students/stats/summary?${query}`);
+  }
+
+  // ✅ NEW: Get PDF info with class
+  async getPDFInfo(studentId, className = 'default') {
+    const query = new URLSearchParams({ className }).toString();
+    return this.request(`/upload/pdf/${studentId}/info?${query}`);
+  }
+
+  // ✅ NEW: Rescan student with class
+  async rescanStudent(studentId, className = 'default') {
+    const query = new URLSearchParams({ className }).toString();
+    return this.request(`/upload/rescan/${studentId}?${query}`, {
+      method: 'POST'
+    });
+  }
+
+  // ✅ NEW: Batch delete scans with class
+  async batchDeleteScans(studentIds, className = 'default') {
+    return this.request('/upload/batch-delete', {
+      method: 'POST',
+      body: { studentIds, className }
+    });
   }
 
   // Health check
@@ -243,18 +298,29 @@ class ApiService {
     return new File([blob], filename, { type: 'image/jpeg' });
   }
 
-  // Batch operations
-  async batchUpdateStatus(updates) {
+  // ✅ UPDATED: Batch operations with class
+  async batchUpdateStatus(updates, className = 'default') {
     return this.request('/students/batch/status', {
       method: 'PATCH',
-      body: { updates }
+      body: { updates, className }
     });
   }
 
-  async batchGeneratePDFs(studentIds) {
+  async batchGeneratePDFs(studentIds, className = 'default') {
     return this.request('/students/batch/generate-pdf', {
       method: 'POST',
-      body: { studentIds }
+      body: { studentIds, className }
+    });
+  }
+
+  // ✅ NEW: Class-specific operations
+  async getClassStats(className) {
+    return this.request(`/classes/${className}/stats`);
+  }
+
+  async deleteClass(className) {
+    return this.request(`/classes/${className}`, {
+      method: 'DELETE'
     });
   }
 }
@@ -271,7 +337,7 @@ const createApiServiceWithErrorHandling = () => {
       if (typeof value === 'function') {
         return async function (...args) {
           try {
-            console.log(`🔄 API Call: ${prop}`, args[0]); // Log only first arg for brevity
+            console.log(`🔄 API Call: ${prop}`, args.length > 0 ? args[0] : '');
             return await value.apply(target, args);
           } catch (error) {
             console.error(`API Error in ${prop}:`, error);
