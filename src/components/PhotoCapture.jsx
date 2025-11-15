@@ -1,7 +1,13 @@
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
+import { useCamera } from "../hooks/useCamera";
 import "./PhotoCapture.css";
 
-const PhotoCapture = ({
+/**
+ * PhotoCapture Component
+ * Handles photo capture for student exam copies with camera integration
+ * Optimized with custom hooks and memoization
+ */
+const PhotoCapture = React.memo(({
   student,
   capturedPhotos = [],
   onPhotosUpdate,
@@ -12,138 +18,54 @@ const PhotoCapture = ({
   onMarkAsMissing,
   hasNextStudent,
 }) => {
-  // Refs
+  // Refs for focus management
   const keepAndAddRef = useRef(null);
   const finishBtnRef = useRef(null);
   const captureBtnRef = useRef(null);
-  const nextStudentBtnRef = useRef(null);
 
-  // States
+  // Local state
   const [currentPhoto, setCurrentPhoto] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [stream, setStream] = useState(null);
-  const [cameraReady, setCameraReady] = useState(false);
-  const [cameraError, setCameraError] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Safe student data access
-  const studentData = student || {
+  // Use custom camera hook
+  const { 
+    stream, 
+    cameraReady, 
+    cameraError, 
+    setupCamera, 
+    capturePhoto, 
+    retryCamera 
+  } = useCamera();
+
+  // Memoized student data
+  const studentData = useMemo(() => student || {
     rollNumber: "Unknown",
     name: "Unknown Student",
-  };
+  }, [student]);
 
-  // Camera setup function
-  const setupCamera = useCallback(async () => {
-    try {
-      setCameraError(null);
+  // Memoized total pages count
+  const totalPages = useMemo(() => 
+    (capturedPhotos?.length || 0) + (currentPhoto ? 1 : 0),
+    [capturedPhotos, currentPhoto]
+  );
 
-      // Stop existing stream if any
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-
-      const constraints = {
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      };
-
-      const mediaStream = await navigator.mediaDevices.getUserMedia(
-        constraints
-      );
-      setStream(mediaStream);
-      setCameraReady(true);
-      return true;
-    } catch (error) {
-      // Try front camera as fallback
-      try {
-        const fallbackConstraints = {
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        };
-
-        const fallbackStream = await navigator.mediaDevices.getUserMedia(
-          fallbackConstraints
-        );
-        setStream(fallbackStream);
-        setCameraReady(true);
-        return true;
-      } catch (fallbackError) {
-        setCameraError("Camera access failed. Please check permissions.");
-        setCameraReady(false);
-        return false;
-      }
-    }
-  }, [stream]);
-
-  // Photo capture functions
+  // Photo capture handler
   const handleTakePhoto = useCallback(async () => {
-    if (isProcessing || !cameraReady || !stream) return;
+    if (isProcessing || !cameraReady) return;
 
     try {
       setIsProcessing(true);
-
-      if ("ImageCapture" in window) {
-        const track = stream.getVideoTracks()[0];
-        const imageCapture = new ImageCapture(track);
-
-        try {
-          const blob = await imageCapture.takePhoto();
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            setCurrentPhoto(e.target.result);
-            setIsProcessing(false);
-          };
-          reader.readAsDataURL(blob);
-        } catch {
-          await captureWithCanvasFallback();
-        }
-      } else {
-        await captureWithCanvasFallback();
+      const photoData = await capturePhoto();
+      if (photoData) {
+        setCurrentPhoto(photoData);
       }
     } catch (error) {
       console.error("Error capturing photo:", error);
+    } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, cameraReady, stream]);
-
-  const captureWithCanvasFallback = useCallback(async () => {
-    if (!stream) return;
-
-    try {
-      const tempVideo = document.createElement("video");
-      tempVideo.srcObject = stream;
-      tempVideo.muted = true;
-
-      await new Promise((resolve, reject) => {
-        tempVideo.onloadedmetadata = () => {
-          tempVideo.play().then(resolve).catch(reject);
-        };
-        setTimeout(() => reject(new Error("Video load timeout")), 5000);
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const canvas = document.createElement("canvas");
-      canvas.width = tempVideo.videoWidth || 1280;
-      canvas.height = tempVideo.videoHeight || 720;
-
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-
-      const imageDataURL = canvas.toDataURL("image/jpeg", 0.9);
-      setCurrentPhoto(imageDataURL);
-      tempVideo.srcObject = null;
-    } catch (error) {
-      console.error("Canvas fallback failed:", error);
-      throw error;
-    }
-  }, [stream]);
+  }, [isProcessing, cameraReady, capturePhoto]);
 
   // Add current photo to captured list
   const addCurrentPhotoToCaptured = useCallback(() => {
@@ -187,7 +109,7 @@ const PhotoCapture = ({
     setCurrentPhoto(null);
   }, []);
 
-  // ✅ FIXED: handleFinish function - Clean and working
+  // Finish and upload photos
   const handleFinish = useCallback(async () => {
     const totalPhotos = (capturedPhotos?.length || 0) + (currentPhoto ? 1 : 0);
 
@@ -255,7 +177,17 @@ const PhotoCapture = ({
     onNextStudent();
   }, [onNextStudent, onPhotosUpdate]);
 
-  // Keyboard shortcuts
+  // Remove photo from captured list
+  const handleRemovePhoto = useCallback(
+    (photoId) => {
+      if (onPhotosUpdate) {
+        onPhotosUpdate((prev) => prev.filter((photo) => photo.id !== photoId));
+      }
+    },
+    [onPhotosUpdate]
+  );
+
+  // Keyboard shortcuts handler
   const handleKeyPress = useCallback(
     (e) => {
       if (
@@ -358,7 +290,7 @@ const PhotoCapture = ({
         await setupCamera();
       } catch (error) {
         if (mounted) {
-          setCameraError("Failed to initialize camera.");
+          console.error("Failed to initialize camera:", error);
         }
       }
     };
@@ -367,11 +299,8 @@ const PhotoCapture = ({
 
     return () => {
       mounted = false;
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
     };
-  }, []);
+  }, [setupCamera]);
 
   // Keyboard event listener
   useEffect(() => {
@@ -380,22 +309,6 @@ const PhotoCapture = ({
       document.removeEventListener("keydown", handleKeyPress);
     };
   }, [handleKeyPress]);
-
-  const handleRemovePhoto = useCallback(
-    (photoId) => {
-      if (onPhotosUpdate) {
-        onPhotosUpdate((prev) => prev.filter((photo) => photo.id !== photoId));
-      }
-    },
-    [onPhotosUpdate]
-  );
-
-  // Camera retry function
-  const handleRetryCamera = async () => {
-    setCameraError(null);
-    setCameraReady(false);
-    await setupCamera();
-  };
 
   if (!studentData) {
     return (
@@ -419,7 +332,7 @@ const PhotoCapture = ({
               📸 {studentData.rollNumber} - {studentData.name}
             </h3>
             <span className="pages-count">
-              {(capturedPhotos?.length || 0) + (currentPhoto ? 1 : 0)} pages
+              {totalPages} pages
               {isProcessing && " (Capturing...)"}
               {uploading && " (Uploading...)"}
             </span>
@@ -459,7 +372,7 @@ const PhotoCapture = ({
               <div className="camera-error-actions">
                 <button
                   className="retry-camera-btn"
-                  onClick={handleRetryCamera}
+                  onClick={retryCamera}
                   disabled={uploading}
                 >
                   🔄 Retry Camera
@@ -504,37 +417,6 @@ const PhotoCapture = ({
                 >
                   🔄 Retake (R)
                 </button>
-
-                {/* <div className="status-actions">
-                  <button
-                    type="button"
-                    className="action-btn absent"
-                    onClick={onMarkAsAbsent}
-                    disabled={uploading}
-                  >
-                    ❌ Absent
-                  </button>
-                  <button
-                    type="button"
-                    className="action-btn missing"
-                    onClick={onMarkAsMissing}
-                    disabled={uploading}
-                  >
-                    📝 Missing
-                  </button>
-                </div> */}
-
-                {/* {hasNextStudent && (
-                  <button
-                    ref={nextStudentBtnRef}
-                    type="button"
-                    className="action-btn next-student"
-                    onClick={handleNextStudent}
-                    disabled={uploading}
-                  >
-                    ⏭ Next Student (N)
-                  </button>
-                )} */}
               </div>
             </div>
           ) : (
@@ -666,6 +548,8 @@ const PhotoCapture = ({
       </div>
     </div>
   );
-};
+});
+
+PhotoCapture.displayName = 'PhotoCapture';
 
 export default PhotoCapture;

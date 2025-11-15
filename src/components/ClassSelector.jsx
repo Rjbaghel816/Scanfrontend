@@ -1,7 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import './ClassSelector.css';
 
-const ClassSelector = ({
+/**
+ * ClassSelector Component
+ * Handles class selection and creation
+ * Memoized to prevent unnecessary re-renders
+ */
+const ClassSelector = React.memo(({
   currentClass,
   availableClasses,
   newClassName,
@@ -71,6 +76,8 @@ const ClassSelector = ({
       )}
     </div>
   );
-};
+});
+
+ClassSelector.displayName = 'ClassSelector';
 
 export default ClassSelector;

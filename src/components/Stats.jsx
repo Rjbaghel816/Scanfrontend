@@ -1,9 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import './Stats.css';
 
-const Stats = ({ total, scanned, absent, missing = 0 }) => {
-  // ✅ FIXED: Missing count ko include kiya calculation me
-  const remaining = total - scanned - absent - missing;
+/**
+ * Stats Component
+ * Displays statistics about student scanning progress
+ * Memoized to prevent unnecessary re-renders
+ */
+const Stats = React.memo(({ total, scanned, absent, missing = 0 }) => {
+  // Memoized remaining calculation
+  const remaining = useMemo(() => 
+    total - scanned - absent - missing,
+    [total, scanned, absent, missing]
+  );
 
   return (
     <div className="stats-container">
@@ -51,6 +59,8 @@ const Stats = ({ total, scanned, absent, missing = 0 }) => {
       </div>
     </div>
   );
-};
+});
+
+Stats.displayName = 'Stats';
 
 export default Stats;

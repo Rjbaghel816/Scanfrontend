@@ -1,110 +1,38 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback, useMemo, Suspense } from "react";
 import StudentTable from "./components/StudentTable";
 import Stats from "./components/Stats";
-import PhotoCapture from "./components/PhotoCapture";
 import ClassSelector from "./components/ClassSelector";
+import ErrorBanner from "./components/ErrorBanner";
+import { useStudents } from "./hooks/useStudents";
+import { useClasses } from "./hooks/useClasses";
 import apiService from "./services/api";
 import "./App.css";
 
+// Code splitting: Lazy load PhotoCapture (large component)
+const PhotoCapture = React.lazy(() => import("./components/PhotoCapture"));
+
+/**
+ * App Component
+ * Main application component with optimized state management and code splitting
+ */
 function App() {
-  const [students, setStudents] = useState([]);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+
+  // Photo capture state
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showPhotoCapture, setShowPhotoCapture] = useState(false);
   const [capturedPhotos, setCapturedPhotos] = useState([]);
   const [isExcelUploaded, setIsExcelUploaded] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
-  // Class Management State
-  const [currentClass, setCurrentClass] = useState('default');
-  const [availableClasses, setAvailableClasses] = useState([]);
-  const [newClassName, setNewClassName] = useState('');
+  // Custom hooks
+  const classes = useClasses();
+  const students = useStudents(classes.currentClass, currentPage, itemsPerPage);
 
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
-  const [totalStudents, setTotalStudents] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-
-  // Load available classes
-  useEffect(() => {
-    fetchAvailableClasses();
-  }, []);
-
-  // Fetch students when class or pagination changes
-  useEffect(() => {
-    if (currentClass && currentClass !== 'default') {
-      fetchStudents();
-    }
-  }, [currentPage, itemsPerPage, currentClass]);
-
-  const fetchAvailableClasses = async () => {
-    try {
-      const response = await apiService.getClasses();
-      if (response.success) {
-        setAvailableClasses(response.classes);
-      }
-    } catch (error) {
-      console.error("Failed to fetch classes:", error);
-    }
-  };
-
-  const fetchStudents = async (page = currentPage, limit = itemsPerPage) => {
-    if (!currentClass || currentClass === 'default') return;
-    
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await apiService.getStudents({
-        page,
-        limit,
-        className: currentClass,
-        sortBy: 'rollNumber',
-        sortOrder: 'asc'
-      });
-      
-      if (response.success) {
-        setStudents(response.students);
-        setTotalStudents(response.pagination.totalStudents);
-        setTotalPages(response.pagination.totalPages);
-        setCurrentPage(response.pagination.currentPage);
-      }
-    } catch (error) {
-      console.error("Failed to fetch students:", error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Create new class
-  const handleCreateNewClass = async () => {
-    if (!newClassName.trim()) {
-      setError("Please enter a class name");
-      return;
-    }
-
-    try {
-      const normalizedClassName = newClassName.trim().replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-      setCurrentClass(normalizedClassName);
-      setNewClassName('');
-      setStudents([]);
-      setTotalStudents(0);
-      setCurrentPage(1);
-      setIsExcelUploaded(false);
-      
-      console.log(`✅ Created new class: ${normalizedClassName}`);
-      setError(null);
-    } catch (error) {
-      setError("Failed to create new class");
-    }
-  };
-
-  // Handle class change
-  const handleClassChange = async (newClass) => {
-    setCurrentClass(newClass);
-    setStudents([]);
-    setTotalStudents(0);
+  // Memoized handlers
+  const handleClassChange = useCallback(async (newClass) => {
+    classes.changeClass(newClass);
     setCurrentPage(1);
     setIsExcelUploaded(false);
     
@@ -115,65 +43,76 @@ function App() {
     }
     
     console.log(`✅ Switched to class: ${newClass}`);
-  };
+  }, [classes, showPhotoCapture]);
 
-  // ✅ FIXED: Excel upload with class
-  const uploadExcelToBackend = async (file) => {
-    setLoading(true);
-    setError(null);
+  const handleCreateNewClass = useCallback(() => {
+    const result = classes.createNewClass();
+    if (result.success) {
+      setCurrentPage(1);
+      setIsExcelUploaded(false);
+      students.setError(null);
+      console.log(`✅ Created new class: ${result.className}`);
+    } else {
+      students.setError(result.error);
+    }
+  }, [classes, students]);
+
+  // Excel upload handler
+  const uploadExcelToBackend = useCallback(async (file) => {
+    if (!classes.currentClass || classes.currentClass === 'default') {
+      students.setError("Please select or create a class first");
+      return;
+    }
+
+    students.setError(null);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
-      // ✅ FIX: Only append className once
-      formData.append('className', currentClass);
+      formData.append('className', classes.currentClass);
 
-      console.log('📤 Sending Excel upload request for class:', currentClass);
+      console.log('📤 Sending Excel upload request for class:', classes.currentClass);
       
-      const response = await apiService.uploadExcelWithClass(formData, currentClass);
+      const response = await apiService.uploadExcelWithClass(formData, classes.currentClass);
       
       if (response.success) {
         setIsExcelUploaded(true);
-        await fetchStudents(1, itemsPerPage);
-        await fetchAvailableClasses();
-        
-        setError(null);
+        await students.fetchStudents(1, itemsPerPage);
+        await classes.fetchAvailableClasses();
+        students.setError(null);
       }
     } catch (error) {
       console.error('Excel upload failed:', error);
-      setError(error.message || "Failed to upload Excel file");
-    } finally {
-      setLoading(false);
+      students.setError(error.message || "Failed to upload Excel file");
     }
-  };
+  }, [classes, students, itemsPerPage]);
 
-  const handleFileUpload = (event) => {
+  const handleFileUpload = useCallback((event) => {
     const file = event.target.files[0];
     if (!file) return;
 
     if (!file.name.match(/\.(xlsx|xls)$/)) {
-      setError("Please upload a valid Excel file (.xlsx, .xls)");
+      students.setError("Please upload a valid Excel file (.xlsx, .xls)");
       return;
     }
 
-    if (!currentClass || currentClass === 'default') {
-      setError("Please select or create a class first");
+    if (!classes.currentClass || classes.currentClass === 'default') {
+      students.setError("Please select or create a class first");
       return;
     }
 
     uploadExcelToBackend(file);
     event.target.value = "";
-  };
+  }, [classes, students, uploadExcelToBackend]);
 
-  // ✅ FIXED: Photo upload with class
-  const handlePhotosCaptured = async (photosArray) => {
+  // Photo upload handler
+  const handlePhotosCaptured = useCallback(async (photosArray) => {
     if (!selectedStudent || photosArray.length === 0) {
       console.error("No student selected or no photos to upload");
       return false;
     }
 
     try {
-      console.log(`📤 Uploading ${photosArray.length} images for ${selectedStudent.rollNumber} in class ${currentClass}...`);
+      console.log(`📤 Uploading ${photosArray.length} images for ${selectedStudent.rollNumber} in class ${classes.currentClass}...`);
 
       const imageFiles = await Promise.all(
         photosArray.map(async (photo, index) => {
@@ -187,37 +126,48 @@ function App() {
       imageFiles.forEach(file => {
         formData.append('images', file);
       });
+      formData.append('className', classes.currentClass);
 
-      // ✅ FIX: Only append className once
-      formData.append('className', currentClass);
-
-      const response = await apiService.uploadScans(selectedStudent._id, formData, currentClass);
+      const response = await apiService.uploadScans(selectedStudent._id, formData, classes.currentClass);
       
       if (response.success) {
         console.log(`✅ Successfully uploaded ${photosArray.length} pages for ${selectedStudent.rollNumber}`);
-        await fetchStudents(currentPage, itemsPerPage);
+        await students.fetchStudents(currentPage, itemsPerPage);
         return true;
       } else {
-        setError(response.message || "Failed to upload scans");
+        students.setError(response.message || "Failed to upload scans");
         return false;
       }
     } catch (error) {
       console.error("Upload scans error:", error);
-      setError("Failed to upload scanned images");
+      students.setError("Failed to upload scanned images");
       return false;
     }
-  };
+  }, [selectedStudent, classes, students, currentPage, itemsPerPage]);
 
-  // Status change with class
-  const handleStatusChange = async (studentId, newStatus) => {
+  // Next student handler (moved before handleStatusChange to fix dependency issue)
+  const getNextStudent = useCallback(() => {
+    return students.getNextPendingStudent(selectedStudent);
+  }, [students, selectedStudent]);
+
+  const handleNextStudent = useCallback(() => {
+    const nextStudent = getNextStudent();
+    if (nextStudent) {
+      setSelectedStudent(nextStudent);
+      setCapturedPhotos([]);
+    } else {
+      setShowPhotoCapture(false);
+      setSelectedStudent(null);
+      setCapturedPhotos([]);
+    }
+  }, [getNextStudent]);
+
+  // Status change handler
+  const handleStatusChange = useCallback(async (studentId, newStatus) => {
     try {
-      const response = await apiService.updateStudentStatus(studentId, newStatus, '', currentClass);
+      const response = await apiService.updateStudentStatus(studentId, newStatus, '', classes.currentClass);
       if (response.success) {
-        setStudents(prev => prev.map(student => 
-          student._id === studentId 
-            ? { ...student, status: newStatus }
-            : student
-        ));
+        students.updateStudent(studentId, { status: newStatus });
 
         if (selectedStudent && selectedStudent._id === studentId && 
             (newStatus === 'Absent' || newStatus === 'Missing')) {
@@ -228,160 +178,126 @@ function App() {
       }
     } catch (error) {
       console.error("Failed to update status:", error);
-      setError("Failed to update student status");
+      students.setError("Failed to update student status");
     }
-  };
+  }, [classes, students, selectedStudent, handleNextStudent]);
 
-  // PDF generation with class
-  const handleGeneratePDF = async (student) => {
+  // PDF generation handler
+  const handleGeneratePDF = useCallback(async (student) => {
     try {
-      const result = await apiService.generatePDF(student._id, currentClass);
+      const result = await apiService.generatePDF(student._id, classes.currentClass);
       if (result.success) {
         console.log(`✅ PDF downloaded: ${result.filename}`);
-        await fetchStudents(currentPage, itemsPerPage);
+        await students.fetchStudents(currentPage, itemsPerPage);
       }
     } catch (error) {
       console.error("PDF generation failed:", error);
-      setError("PDF download failed. Please try again.");
+      students.setError("PDF download failed. Please try again.");
     }
-  };
+  }, [classes, students, currentPage, itemsPerPage]);
 
-  // Remark change with class
-  const handleRemarkChange = async (studentId, remark) => {
+  // Remark change handler
+  const handleRemarkChange = useCallback(async (studentId, remark) => {
     try {
-      const response = await apiService.updateStudentRemark(studentId, remark, currentClass);
+      const response = await apiService.updateStudentRemark(studentId, remark, classes.currentClass);
       if (response.success) {
-        setStudents(prev => prev.map(student => 
-          student._id === studentId 
-            ? { ...student, remark }
-            : student
-        ));
+        students.updateStudent(studentId, { remark });
       }
     } catch (error) {
       console.error("Failed to update remark:", error);
     }
-  };
+  }, [classes, students]);
 
-  const getNextStudent = () => {
-    if (!selectedStudent || students.length === 0) return null;
-    
-    const currentIndex = students.findIndex(s => s._id === selectedStudent._id);
-    if (currentIndex === -1) return null;
-    
-    for (let i = currentIndex + 1; i < students.length; i++) {
-      if (students[i].status === 'Pending' && !students[i].isScanned) {
-        return students[i];
-      }
-    }
-    
-    return null;
-  };
+  const hasNextStudent = useMemo(() => !!getNextStudent(), [getNextStudent]);
 
-  const handleNextStudent = () => {
-    const nextStudent = getNextStudent();
-    if (nextStudent) {
-      setSelectedStudent(nextStudent);
-      setCapturedPhotos([]);
-    } else {
-      setShowPhotoCapture(false);
-      setSelectedStudent(null);
-      setCapturedPhotos([]);
-    }
-  };
-
-  const handleMarkAsAbsent = async () => {
+  // Mark as absent handler
+  const handleMarkAsAbsent = useCallback(async () => {
     if (!selectedStudent) return;
     try {
-      const response = await apiService.updateStudentStatus(selectedStudent._id, 'Absent', '', currentClass);
+      const response = await apiService.updateStudentStatus(selectedStudent._id, 'Absent', '', classes.currentClass);
       if (response.success) {
-        await fetchStudents(currentPage, itemsPerPage);
+        await students.fetchStudents(currentPage, itemsPerPage);
         handleNextStudent();
       }
     } catch (error) {
       console.error("Failed to mark as absent:", error);
-      setError("Failed to mark student as absent");
+      students.setError("Failed to mark student as absent");
     }
-  };
+  }, [selectedStudent, classes, students, currentPage, itemsPerPage, handleNextStudent]);
 
-  const handleMarkAsMissing = async () => {
+  // Mark as missing handler
+  const handleMarkAsMissing = useCallback(async () => {
     if (!selectedStudent) return;
     try {
-      const response = await apiService.updateStudentStatus(selectedStudent._id, 'Missing', '', currentClass);
+      const response = await apiService.updateStudentStatus(selectedStudent._id, 'Missing', '', classes.currentClass);
       if (response.success) {
-        await fetchStudents(currentPage, itemsPerPage);
+        await students.fetchStudents(currentPage, itemsPerPage);
         handleNextStudent();
       }
     } catch (error) {
       console.error("Failed to mark as missing:", error);
-      setError("Failed to mark student as missing");
+      students.setError("Failed to mark student as missing");
     }
-  };
+  }, [selectedStudent, classes, students, currentPage, itemsPerPage, handleNextStudent]);
 
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
+  // Pagination handlers
+  const handlePageChange = useCallback((newPage) => {
+    if (newPage >= 1 && newPage <= students.totalPages) {
       setCurrentPage(newPage);
     }
-  };
+  }, [students.totalPages]);
 
-  const handleItemsPerPageChange = (e) => {
+  const handleItemsPerPageChange = useCallback((e) => {
     const newItemsPerPage = parseInt(e.target.value);
     setItemsPerPage(newItemsPerPage);
     setCurrentPage(1);
-  };
+  }, []);
 
-  const handleScanRequest = (student) => {
+  // Scan request handler
+  const handleScanRequest = useCallback((student) => {
     setSelectedStudent(student);
     setShowPhotoCapture(true);
     setCapturedPhotos([]);
-  };
+  }, []);
 
-  const hasNextStudent = !!getNextStudent();
-
-  const getClassDisplayName = () => {
-    if (currentClass === 'default') return 'No Class Selected';
-    return currentClass.replace(/_/g, ' ');
-  };
+  // Memoized stats for Stats component
+  const statsData = useMemo(() => ({
+    total: students.totalStudents,
+    scanned: students.stats.scanned,
+    absent: students.stats.absent,
+    missing: students.stats.missing,
+  }), [students.totalStudents, students.stats]);
 
   return (
     <div className="app">
       <header className="app-header">
         <div className="header-content">
           <h1>📱 University Exam Copy Scanner</h1>
-          <p>Multi-Class Scanning System | Current Class: <strong>{getClassDisplayName()}</strong></p>
+          <p>Multi-Class Scanning System | Current Class: <strong>{classes.getClassDisplayName()}</strong></p>
         </div>
 
         <div className="class-selector-section">
           <ClassSelector
-            currentClass={currentClass}
-            availableClasses={availableClasses}
-            newClassName={newClassName}
+            currentClass={classes.currentClass}
+            availableClasses={classes.availableClasses}
+            newClassName={classes.newClassName}
             onClassChange={handleClassChange}
-            onNewClassNameChange={setNewClassName}
+            onNewClassNameChange={classes.setNewClassName}
             onCreateNewClass={handleCreateNewClass}
           />
         </div>
       </header>
 
       <main className="main-content">
-        {error && (
-          <div className="error-banner">
-            <span>❌ {error}</span>
-            <button onClick={() => setError(null)} className="error-close">
-              ×
-            </button>
-          </div>
-        )}
-
-        <Stats
-          total={totalStudents}
-          scanned={students.filter(s => s.isScanned).length}
-          absent={students.filter(s => s.status === 'Absent').length}
-          missing={students.filter(s => s.status === 'Missing').length}
-          currentClass={currentClass}
+        <ErrorBanner 
+          error={students.error} 
+          onDismiss={() => students.setError(null)} 
         />
 
+        <Stats {...statsData} currentClass={classes.currentClass} />
+
         <StudentTable
-          students={students}
+          students={students.students}
           onStatusChange={handleStatusChange}
           onRemarkChange={handleRemarkChange}
           selectedStudent={selectedStudent}
@@ -389,33 +305,44 @@ function App() {
           onGeneratePDF={handleGeneratePDF}
           onExcelUpload={handleFileUpload}
           isExcelUploaded={isExcelUploaded}
-          loading={loading}
+          loading={students.loading}
           currentPage={currentPage}
-          totalPages={totalPages}
-          totalStudents={totalStudents}
+          totalPages={students.totalPages}
+          totalStudents={students.totalStudents}
           itemsPerPage={itemsPerPage}
           onPageChange={handlePageChange}
           onItemsPerPageChange={handleItemsPerPageChange}
-          currentClass={currentClass}
+          currentClass={classes.currentClass}
         />
 
         {showPhotoCapture && selectedStudent && (
-          <PhotoCapture
-            student={selectedStudent}
-            capturedPhotos={capturedPhotos}
-            onPhotosUpdate={setCapturedPhotos}
-            onFinish={handlePhotosCaptured}
-            onClose={() => {
-              setShowPhotoCapture(false);
-              setSelectedStudent(null);
-              setCapturedPhotos([]);
-            }}
-            onNextStudent={handleNextStudent}
-            onMarkAsAbsent={handleMarkAsAbsent}
-            onMarkAsMissing={handleMarkAsMissing}
-            hasNextStudent={hasNextStudent}
-            currentClass={currentClass}
-          />
+          <Suspense fallback={
+            <div className="photo-capture-overlay">
+              <div className="photo-capture-modal">
+                <div style={{ padding: "20px", textAlign: "center" }}>
+                  <div className="spinner"></div>
+                  <p>Loading camera...</p>
+                </div>
+              </div>
+            </div>
+          }>
+            <PhotoCapture
+              student={selectedStudent}
+              capturedPhotos={capturedPhotos}
+              onPhotosUpdate={setCapturedPhotos}
+              onFinish={handlePhotosCaptured}
+              onClose={() => {
+                setShowPhotoCapture(false);
+                setSelectedStudent(null);
+                setCapturedPhotos([]);
+              }}
+              onNextStudent={handleNextStudent}
+              onMarkAsAbsent={handleMarkAsAbsent}
+              onMarkAsMissing={handleMarkAsMissing}
+              hasNextStudent={hasNextStudent}
+              currentClass={classes.currentClass}
+            />
+          </Suspense>
         )}
       </main>
     </div>
