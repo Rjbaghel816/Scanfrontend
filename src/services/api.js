@@ -262,6 +262,14 @@ class ApiService {
     });
   }
 
+  // ✅ NEW: Delete PDF file and database entry
+  async deletePDF(studentId, className = 'default') {
+    const query = new URLSearchParams({ className }).toString();
+    return this.request(`/upload/pdf/${studentId}?${query}`, {
+      method: 'DELETE'
+    });
+  }
+
   // ✅ NEW: Batch delete scans with class
   async batchDeleteScans(studentIds, className = 'default') {
     return this.request('/upload/batch-delete', {

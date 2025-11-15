@@ -12,6 +12,8 @@ const StudentTableRow = memo(({
   onRemarkChange,
   onSelectStudent,
   onGeneratePDF,
+  onDeletePDF,
+  currentClass,
 }) => {
   const handleScanClick = () => {
     if (!student.isScanned && student.status !== "Absent" && student.status !== "Missing") {
@@ -27,6 +29,13 @@ const StudentTableRow = memo(({
       alert("PDF is being generated. Please wait a moment...");
     } else {
       alert("Please scan copies first to generate PDF.");
+    }
+  };
+
+  const handleDeletePDFClick = (event) => {
+    event.stopPropagation();
+    if (onDeletePDF && student.pdfPath) {
+      onDeletePDF(student);
     }
   };
 
@@ -115,69 +124,65 @@ const StudentTableRow = memo(({
       </td>
 
       <td>
-        <input
-          type="text"
-          value={student.remark || ""}
-          onChange={(e) => onRemarkChange(student._id || student.id, e.target.value)}
-          placeholder="Add remark..."
-          className="remark-input"
-          maxLength={100}
-        />
-        {student.remark && (
-          <div className="remark-length">
-            {student.remark.length}/100
-          </div>
-        )}
-      </td>
-
-      <td>
         <div className="action-buttons">
-          <button
-            className={`scan-btn ${isScanned ? "scanned" : ""} ${
-              !canScan ? "disabled" : ""
-            }`}
-            onClick={handleScanClick}
-            disabled={!canScan}
-            title={
-              isScanned
-                ? "Already scanned"
-                : !canScan
-                ? "Cannot scan absent/missing students"
-                : "Scan student copies"
-            }
-          >
-            {isScanned ? (
-              <>
-                <span className="btn-icon">✓</span>
-                Scanned
-              </>
-            ) : (
-              <>
-                <span className="btn-icon">📷</span>
-                Scan Copy
-              </>
-            )}
-          </button>
+          <div className="action-buttons-left">
+            <button
+              className={`scan-btn ${isScanned ? "scanned" : ""} ${
+                !canScan ? "disabled" : ""
+              }`}
+              onClick={handleScanClick}
+              disabled={!canScan}
+              title={
+                isScanned
+                  ? "Already scanned"
+                  : !canScan
+                  ? "Cannot scan absent/missing students"
+                  : "Scan student copies"
+              }
+            >
+              {isScanned ? (
+                <>
+                  <span className="btn-icon">✓</span>
+                  Scanned
+                </>
+              ) : (
+                <>
+                  <span className="btn-icon">📷</span>
+                  Scan Copy
+                </>
+              )}
+            </button>
 
-          {student.pdfPath ? (
+            {student.pdfPath ? (
+              <button
+                className="pdf-btn available"
+                onClick={handlePDFClick}
+                title="Download PDF"
+              >
+                <span className="btn-icon">📄</span>
+                Download PDF
+              </button>
+            ) : isScanned ? (
+              <button
+                className="pdf-btn processing"
+                disabled
+                title="PDF is being generated"
+              >
+                <span className="btn-icon">⏳</span>
+                Generating...
+              </button>
+            ) : null}
+          </div>
+          {student.pdfPath && (
             <button
-              className="pdf-btn available"
-              onClick={handlePDFClick}
-              title="Download PDF"
+              className="delete-pdf-icon"
+              onClick={handleDeletePDFClick}
+              title="Delete PDF / Cancel Scan"
+              aria-label="Delete PDF"
             >
-              <span className="btn-icon">📄</span>
-              Download PDF
+              ❌
             </button>
-          ) : isScanned ? (
-            <button
-              className="pdf-btn processing"
-              disabled
-              title="PDF is being generated"
-            >
-              <span className="btn-icon">⏳</span>
-              Generating...
-            </button>
-          ) : null}
+          )}
         </div>
       </td>
     </tr>
@@ -190,7 +195,8 @@ const StudentTableRow = memo(({
     prevProps.student.remark === nextProps.student.remark &&
     prevProps.student.isScanned === nextProps.student.isScanned &&
     prevProps.student.pdfPath === nextProps.student.pdfPath &&
-    prevProps.selectedStudent?._id === nextProps.selectedStudent?._id
+    prevProps.selectedStudent?._id === nextProps.selectedStudent?._id &&
+    prevProps.onDeletePDF === nextProps.onDeletePDF
   );
 });
 

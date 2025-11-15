@@ -15,6 +15,7 @@ const StudentTable = memo(({
   selectedStudent,
   onSelectStudent,
   onGeneratePDF,
+  onDeletePDF,
   onExcelUpload,
   isExcelUploaded,
   loading,
@@ -156,7 +157,6 @@ const StudentTable = memo(({
                 <th>Scan Time</th>
                 <th>PDF Status</th>
                 <th>Status</th>
-                <th>Remark</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -170,6 +170,8 @@ const StudentTable = memo(({
                   onRemarkChange={onRemarkChange}
                   onSelectStudent={onSelectStudent}
                   onGeneratePDF={onGeneratePDF}
+                  onDeletePDF={onDeletePDF}
+                  currentClass={currentClass}
                 />
               ))}
             </tbody>

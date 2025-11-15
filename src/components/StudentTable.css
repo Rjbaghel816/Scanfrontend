@@ -195,6 +195,85 @@
   cursor: not-allowed;
 }
 
+/* PDF Button Styles */
+.pdf-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  min-width: 100px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pdf-btn.available {
+  background: #28a745;
+  color: white;
+}
+
+.pdf-btn.available:hover {
+  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.pdf-btn.processing {
+  background: var(--gray);
+  color: var(--gray-dark);
+  cursor: not-allowed;
+}
+
+/* Delete PDF Icon - Small and Clean */
+.delete-pdf-icon {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  font-size: 18px;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+}
+
+.delete-pdf-icon:hover {
+  opacity: 0.7;
+}
+
+.delete-pdf-icon:active {
+  opacity: 0.5;
+}
+
+.pdf-btn .btn-icon {
+  font-size: 1rem;
+}
+
+/* Action buttons container */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.action-buttons-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
 .details-btn {
   background: none;
   border: 1px solid var(--gray);

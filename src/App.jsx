@@ -196,6 +196,50 @@ function App() {
     }
   }, [classes, students, currentPage, itemsPerPage]);
 
+  // Delete PDF handler
+  const handleDeletePDF = useCallback(async (student) => {
+    if (!student.pdfPath) {
+      students.setError("No PDF found to delete");
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete the PDF for ${student.rollNumber}? This will allow you to scan again.`)) {
+      return;
+    }
+
+    try {
+      const response = await apiService.deletePDF(student._id, classes.currentClass);
+      if (response.success) {
+        // Immediately update local state to reflect changes
+        students.updateStudent(student._id, {
+          status: 'Pending',
+          isScanned: false,
+          scannedPages: [],
+          scanTime: null,
+          pdfPath: null,
+          pdfName: null,
+          pdfGeneratedAt: null
+        });
+        
+        // Refresh student list to get updated data from backend
+        await students.fetchStudents(currentPage, itemsPerPage);
+        
+        // Show success message
+        const successMessage = `✅ PDF deleted for ${student.rollNumber}. You can scan again.`;
+        students.setError(successMessage);
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          students.setError(null);
+        }, 3000);
+      } else {
+        students.setError(response.message || "Failed to delete PDF");
+      }
+    } catch (error) {
+      console.error("Delete PDF failed:", error);
+      students.setError("Failed to delete PDF. Please try again.");
+    }
+  }, [classes, students, currentPage, itemsPerPage]);
+
   // Remark change handler
   const handleRemarkChange = useCallback(async (studentId, remark) => {
     try {
@@ -303,6 +347,7 @@ function App() {
           selectedStudent={selectedStudent}
           onSelectStudent={handleScanRequest}
           onGeneratePDF={handleGeneratePDF}
+          onDeletePDF={handleDeletePDF}
           onExcelUpload={handleFileUpload}
           isExcelUploaded={isExcelUploaded}
           loading={students.loading}
