@@ -1,4 +1,4 @@
-const API_BASE = 'https://scanbackend-4l4e.onrender.com/api';
+const API_BASE = 'https://scanbackend-4l4e.onrender.com';
 
 class ApiService {
   async request(endpoint, options = {}) {
