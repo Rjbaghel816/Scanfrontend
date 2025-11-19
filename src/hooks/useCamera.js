@@ -24,8 +24,11 @@ export const useCamera = () => {
       const constraints = {
         video: {
           facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          focusMode: "continuous",
+          exposureMode: "continuous",
+          whiteBalanceMode: "continuous"
         },
       };
 
@@ -40,8 +43,11 @@ export const useCamera = () => {
         const fallbackConstraints = {
           video: {
             facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            focusMode: "continuous",
+            exposureMode: "continuous",
+            whiteBalanceMode: "continuous"
           },
         };
 
@@ -78,7 +84,7 @@ export const useCamera = () => {
         const imageCapture = new ImageCapture(track);
         const blob = await imageCapture.takePhoto();
         const reader = new FileReader();
-        
+
         return new Promise((resolve, reject) => {
           reader.onload = (e) => resolve(e.target.result);
           reader.onerror = reject;

@@ -22,6 +22,7 @@ const PhotoCapture = React.memo(({
   const keepAndAddRef = useRef(null);
   const finishBtnRef = useRef(null);
   const captureBtnRef = useRef(null);
+  const videoRef = useRef(null);
 
   // Local state
   const [currentPhoto, setCurrentPhoto] = useState(null);
@@ -29,13 +30,13 @@ const PhotoCapture = React.memo(({
   const [uploading, setUploading] = useState(false);
 
   // Use custom camera hook
-  const { 
-    stream, 
-    cameraReady, 
-    cameraError, 
-    setupCamera, 
-    capturePhoto, 
-    retryCamera 
+  const {
+    stream,
+    cameraReady,
+    cameraError,
+    setupCamera,
+    capturePhoto,
+    retryCamera
   } = useCamera();
 
   // Memoized student data
@@ -45,7 +46,7 @@ const PhotoCapture = React.memo(({
   }, [student]);
 
   // Memoized total pages count
-  const totalPages = useMemo(() => 
+  const totalPages = useMemo(() =>
     (capturedPhotos?.length || 0) + (currentPhoto ? 1 : 0),
     [capturedPhotos, currentPhoto]
   );
@@ -56,6 +57,9 @@ const PhotoCapture = React.memo(({
 
     try {
       setIsProcessing(true);
+      // Yield to render to ensure video is hidden
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const photoData = await capturePhoto();
       if (photoData) {
         setCurrentPhoto(photoData);
@@ -302,6 +306,13 @@ const PhotoCapture = React.memo(({
     };
   }, [setupCamera]);
 
+  // Attach stream to video element
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
   // Keyboard event listener
   useEffect(() => {
     document.addEventListener("keydown", handleKeyPress);
@@ -462,18 +473,39 @@ const PhotoCapture = React.memo(({
               )}
 
               <div className="capture-main">
-                {isProcessing ? (
-                  <div className="processing-overlay">
-                    <div className="spinner"></div>
-                    <p>Capturing Photo...</p>
-                  </div>
-                ) : (
+                <div className="camera-preview-container">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="live-camera-feed"
+                    style={{ display: isProcessing ? 'none' : 'block' }}
+                  />
+                  {/* Alignment Guides */}
+                  {!isProcessing && (
+                    <div className="alignment-overlay">
+                      <div className="center-line"></div>
+                      <div className="grid-lines"></div>
+                    </div>
+                  )}
+
+                  {/* Processing Overlay */}
+                  {isProcessing && (
+                    <div className="processing-overlay">
+                      <div className="spinner"></div>
+                      <p>Capturing Photo...</p>
+                    </div>
+                  )}
+                </div>
+
+                {!isProcessing && (
                   <button
                     ref={captureBtnRef}
                     type="button"
                     className="capture-btn-large"
                     onClick={handleTakePhoto}
-                    disabled={isProcessing || !cameraReady || uploading}
+                    disabled={!cameraReady || uploading}
                   >
                     <div className="camera-icon-large">📷</div>
                     <div className="capture-text">
@@ -540,9 +572,8 @@ const PhotoCapture = React.memo(({
           <span>
             {cameraError
               ? "Camera unavailable. Please ensure camera permissions are granted."
-              : `Shortcuts: Enter=Capture/Keep & Next, R=Retake, K/F=Finish & Save, A=Keep & Next${
-                  hasNextStudent ? ", N=Next Student" : ""
-                }, Esc=Close`}
+              : `Shortcuts: Enter=Capture/Keep & Next, R=Retake, K/F=Finish & Save, A=Keep & Next${hasNextStudent ? ", N=Next Student" : ""
+              }, Esc=Close`}
           </span>
         </div>
       </div>
