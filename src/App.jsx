@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, Suspense } from "react";
+import { compressImage } from "./utils/imageCompression";
 import StudentTable from "./components/StudentTable";
 import Stats from "./components/Stats";
 import ClassSelector from "./components/ClassSelector";
@@ -35,13 +36,13 @@ function App() {
     classes.changeClass(newClass);
     setCurrentPage(1);
     setIsExcelUploaded(false);
-    
+
     if (showPhotoCapture) {
       setShowPhotoCapture(false);
       setSelectedStudent(null);
       setCapturedPhotos([]);
     }
-    
+
     console.log(`✅ Switched to class: ${newClass}`);
   }, [classes, showPhotoCapture]);
 
@@ -71,9 +72,9 @@ function App() {
       formData.append('className', classes.currentClass);
 
       console.log('📤 Sending Excel upload request for class:', classes.currentClass);
-      
+
       const response = await apiService.uploadExcelWithClass(formData, classes.currentClass);
-      
+
       if (response.success) {
         setIsExcelUploaded(true);
         await students.fetchStudents(1, itemsPerPage);
@@ -114,11 +115,24 @@ function App() {
     try {
       console.log(`📤 Uploading ${photosArray.length} images for ${selectedStudent.rollNumber} in class ${classes.currentClass}...`);
 
+      // Parallel compression and file preparation
       const imageFiles = await Promise.all(
         photosArray.map(async (photo, index) => {
-          const response = await fetch(photo.data);
-          const blob = await response.blob();
-          return new File([blob], `page_${index + 1}.jpg`, { type: 'image/jpeg' });
+          try {
+            // Compress image before upload
+            const compressedFile = await compressImage(photo.data, {
+              maxWidth: 1600,
+              maxHeight: 2200,
+              quality: 0.8
+            });
+            // Rename with index for order
+            return new File([compressedFile], `page_${index + 1}.jpg`, { type: 'image/jpeg' });
+          } catch (err) {
+            console.warn(`Compression failed for page ${index + 1}, using original`, err);
+            const response = await fetch(photo.data);
+            const blob = await response.blob();
+            return new File([blob], `page_${index + 1}.jpg`, { type: 'image/jpeg' });
+          }
         })
       );
 
@@ -129,7 +143,7 @@ function App() {
       formData.append('className', classes.currentClass);
 
       const response = await apiService.uploadScans(selectedStudent._id, formData, classes.currentClass);
-      
+
       if (response.success) {
         console.log(`✅ Successfully uploaded ${photosArray.length} pages for ${selectedStudent.rollNumber}`);
         await students.fetchStudents(currentPage, itemsPerPage);
@@ -169,8 +183,8 @@ function App() {
       if (response.success) {
         students.updateStudent(studentId, { status: newStatus });
 
-        if (selectedStudent && selectedStudent._id === studentId && 
-            (newStatus === 'Absent' || newStatus === 'Missing')) {
+        if (selectedStudent && selectedStudent._id === studentId &&
+          (newStatus === 'Absent' || newStatus === 'Missing')) {
           setTimeout(() => {
             handleNextStudent();
           }, 300);
@@ -220,10 +234,10 @@ function App() {
           pdfName: null,
           pdfGeneratedAt: null
         });
-        
+
         // Refresh student list to get updated data from backend
         await students.fetchStudents(currentPage, itemsPerPage);
-        
+
         // Show success message
         const successMessage = `✅ PDF deleted for ${student.rollNumber}. You can scan again.`;
         students.setError(successMessage);
@@ -333,9 +347,9 @@ function App() {
       </header>
 
       <main className="main-content">
-        <ErrorBanner 
-          error={students.error} 
-          onDismiss={() => students.setError(null)} 
+        <ErrorBanner
+          error={students.error}
+          onDismiss={() => students.setError(null)}
         />
 
         <Stats {...statsData} currentClass={classes.currentClass} />
