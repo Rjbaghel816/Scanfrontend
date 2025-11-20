@@ -32,19 +32,22 @@ function App() {
   const students = useStudents(classes.currentClass, currentPage, itemsPerPage);
 
   // Memoized handlers
-  const handleClassChange = useCallback(async (newClass) => {
-    classes.changeClass(newClass);
-    setCurrentPage(1);
-    setIsExcelUploaded(false);
+  const handleClassChange = useCallback(
+    async (newClass) => {
+      classes.changeClass(newClass);
+      setCurrentPage(1);
+      setIsExcelUploaded(false);
 
-    if (showPhotoCapture) {
-      setShowPhotoCapture(false);
-      setSelectedStudent(null);
-      setCapturedPhotos([]);
-    }
+      if (showPhotoCapture) {
+        setShowPhotoCapture(false);
+        setSelectedStudent(null);
+        setCapturedPhotos([]);
+      }
 
-    console.log(`✅ Switched to class: ${newClass}`);
-  }, [classes, showPhotoCapture]);
+      console.log(`✅ Switched to class: ${newClass}`);
+    },
+    [classes, showPhotoCapture]
+  );
 
   const handleCreateNewClass = useCallback(() => {
     const result = classes.createNewClass();
@@ -59,105 +62,135 @@ function App() {
   }, [classes, students]);
 
   // Excel upload handler
-  const uploadExcelToBackend = useCallback(async (file) => {
-    if (!classes.currentClass || classes.currentClass === 'default') {
-      students.setError("Please select or create a class first");
-      return;
-    }
-
-    students.setError(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('className', classes.currentClass);
-
-      console.log('📤 Sending Excel upload request for class:', classes.currentClass);
-
-      const response = await apiService.uploadExcelWithClass(formData, classes.currentClass);
-
-      if (response.success) {
-        setIsExcelUploaded(true);
-        await students.fetchStudents(1, itemsPerPage);
-        await classes.fetchAvailableClasses();
-        students.setError(null);
+  const uploadExcelToBackend = useCallback(
+    async (file) => {
+      if (!classes.currentClass || classes.currentClass === "default") {
+        students.setError("Please select or create a class first");
+        return;
       }
-    } catch (error) {
-      console.error('Excel upload failed:', error);
-      students.setError(error.message || "Failed to upload Excel file");
-    }
-  }, [classes, students, itemsPerPage]);
 
-  const handleFileUpload = useCallback((event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+      students.setError(null);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("className", classes.currentClass);
 
-    if (!file.name.match(/\.(xlsx|xls)$/)) {
-      students.setError("Please upload a valid Excel file (.xlsx, .xls)");
-      return;
-    }
+        console.log(
+          "📤 Sending Excel upload request for class:",
+          classes.currentClass
+        );
 
-    if (!classes.currentClass || classes.currentClass === 'default') {
-      students.setError("Please select or create a class first");
-      return;
-    }
+        const response = await apiService.uploadExcelWithClass(
+          formData,
+          classes.currentClass
+        );
 
-    uploadExcelToBackend(file);
-    event.target.value = "";
-  }, [classes, students, uploadExcelToBackend]);
+        if (response.success) {
+          setIsExcelUploaded(true);
+          await students.fetchStudents(1, itemsPerPage);
+          await classes.fetchAvailableClasses();
+          students.setError(null);
+        }
+      } catch (error) {
+        console.error("Excel upload failed:", error);
+        students.setError(error.message || "Failed to upload Excel file");
+      }
+    },
+    [classes, students, itemsPerPage]
+  );
+
+  const handleFileUpload = useCallback(
+    (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (!file.name.match(/\.(xlsx|xls)$/)) {
+        students.setError("Please upload a valid Excel file (.xlsx, .xls)");
+        return;
+      }
+
+      if (!classes.currentClass || classes.currentClass === "default") {
+        students.setError("Please select or create a class first");
+        return;
+      }
+
+      uploadExcelToBackend(file);
+      event.target.value = "";
+    },
+    [classes, students, uploadExcelToBackend]
+  );
 
   // Photo upload handler
-  const handlePhotosCaptured = useCallback(async (photosArray) => {
-    if (!selectedStudent || photosArray.length === 0) {
-      console.error("No student selected or no photos to upload");
-      return false;
-    }
-
-    try {
-      console.log(`📤 Uploading ${photosArray.length} images for ${selectedStudent.rollNumber} in class ${classes.currentClass}...`);
-
-      // Parallel compression and file preparation
-      const imageFiles = await Promise.all(
-        photosArray.map(async (photo, index) => {
-          try {
-            // Compress image before upload
-            const compressedFile = await compressImage(photo.data, {
-              maxWidth: 1600,
-              maxHeight: 2200,
-              quality: 0.8
-            });
-            // Rename with index for order
-            return new File([compressedFile], `page_${index + 1}.jpg`, { type: 'image/jpeg' });
-          } catch (err) {
-            console.warn(`Compression failed for page ${index + 1}, using original`, err);
-            const response = await fetch(photo.data);
-            const blob = await response.blob();
-            return new File([blob], `page_${index + 1}.jpg`, { type: 'image/jpeg' });
-          }
-        })
-      );
-
-      const formData = new FormData();
-      imageFiles.forEach(file => {
-        formData.append('images', file);
-      });
-      formData.append('className', classes.currentClass);
-
-      const response = await apiService.uploadScans(selectedStudent._id, formData, classes.currentClass);
-
-      if (response.success) {
-        console.log(`✅ Successfully uploaded ${photosArray.length} pages for ${selectedStudent.rollNumber}`);
-        await students.fetchStudents(currentPage, itemsPerPage);
-        return true;
-      } else {
-        students.setError(response.message || "Failed to upload scans");
+  const handlePhotosCaptured = useCallback(
+    async (photosArray) => {
+      if (!selectedStudent || photosArray.length === 0) {
+        console.error("No student selected or no photos to upload");
         return false;
       }
-    } catch (error) {
-      console.error("Upload scans error:", error);
-      students.setError("Failed to upload scanned images");
-      return false;
-    }
-  }, [selectedStudent, classes, students, currentPage, itemsPerPage]);
+
+      try {
+        console.log(
+          `📤 Uploading ${photosArray.length} images for ${selectedStudent.rollNumber} in class ${classes.currentClass}...`
+        );
+
+        // Parallel compression and file preparation
+        const imageFiles = await Promise.all(
+          photosArray.map(async (photo, index) => {
+            try {
+              // Compress image before upload
+              const compressedFile = await compressImage(photo.data, {
+                maxWidth: 1600,
+                maxHeight: 2200,
+                quality: 0.8,
+              });
+              // Rename with index for order
+              return new File([compressedFile], `page_${index + 1}.jpg`, {
+                type: "image/jpeg",
+              });
+            } catch (err) {
+              console.warn(
+                `Compression failed for page ${index + 1}, using original`,
+                err
+              );
+              const response = await fetch(photo.data);
+              const blob = await response.blob();
+              return new File([blob], `page_${index + 1}.jpg`, {
+                type: "image/jpeg",
+              });
+            }
+          })
+        );
+
+        const formData = new FormData();
+        imageFiles.forEach((file) => {
+          formData.append("images", file);
+        });
+        formData.append("className", classes.currentClass);
+
+        const response = await apiService.uploadScans(
+          selectedStudent._id,
+          formData,
+          classes.currentClass
+        );
+
+        if (response.success) {
+          console.log(
+            `✅ Successfully uploaded ${photosArray.length} pages for ${selectedStudent.rollNumber}`
+          );
+          await students.fetchStudents(currentPage, itemsPerPage);
+          return true;
+        } else {
+          students.setError(response.message || "Failed to upload scans");
+          return false;
+        }
+      } catch (error) {
+        console.error("Upload scans error:", error);
+        students.setError("Failed to upload scanned images");
+        return false;
+      }
+    },
+    [selectedStudent, classes, students, currentPage, itemsPerPage]
+  );
 
   // Next student handler (moved before handleStatusChange to fix dependency issue)
   const getNextStudent = useCallback(() => {
@@ -177,94 +210,128 @@ function App() {
   }, [getNextStudent]);
 
   // Status change handler
-  const handleStatusChange = useCallback(async (studentId, newStatus) => {
-    try {
-      const response = await apiService.updateStudentStatus(studentId, newStatus, '', classes.currentClass);
-      if (response.success) {
-        students.updateStudent(studentId, { status: newStatus });
+  const handleStatusChange = useCallback(
+    async (studentId, newStatus) => {
+      try {
+        const response = await apiService.updateStudentStatus(
+          studentId,
+          newStatus,
+          "",
+          classes.currentClass
+        );
+        if (response.success) {
+          students.updateStudent(studentId, { status: newStatus });
 
-        if (selectedStudent && selectedStudent._id === studentId &&
-          (newStatus === 'Absent' || newStatus === 'Missing')) {
-          setTimeout(() => {
-            handleNextStudent();
-          }, 300);
+          if (
+            selectedStudent &&
+            selectedStudent._id === studentId &&
+            (newStatus === "Absent" || newStatus === "Missing")
+          ) {
+            setTimeout(() => {
+              handleNextStudent();
+            }, 300);
+          }
         }
+      } catch (error) {
+        console.error("Failed to update status:", error);
+        students.setError("Failed to update student status");
       }
-    } catch (error) {
-      console.error("Failed to update status:", error);
-      students.setError("Failed to update student status");
-    }
-  }, [classes, students, selectedStudent, handleNextStudent]);
+    },
+    [classes, students, selectedStudent, handleNextStudent]
+  );
 
   // PDF generation handler
-  const handleGeneratePDF = useCallback(async (student) => {
-    try {
-      const result = await apiService.generatePDF(student._id, classes.currentClass);
-      if (result.success) {
-        console.log(`✅ PDF downloaded: ${result.filename}`);
-        await students.fetchStudents(currentPage, itemsPerPage);
+  const handleGeneratePDF = useCallback(
+    async (student) => {
+      try {
+        const result = await apiService.generatePDF(
+          student._id,
+          classes.currentClass
+        );
+        if (result.success) {
+          console.log(`✅ PDF downloaded: ${result.filename}`);
+          await students.fetchStudents(currentPage, itemsPerPage);
+        }
+      } catch (error) {
+        console.error("PDF generation failed:", error);
+        students.setError("PDF download failed. Please try again.");
       }
-    } catch (error) {
-      console.error("PDF generation failed:", error);
-      students.setError("PDF download failed. Please try again.");
-    }
-  }, [classes, students, currentPage, itemsPerPage]);
+    },
+    [classes, students, currentPage, itemsPerPage]
+  );
 
   // Delete PDF handler
-  const handleDeletePDF = useCallback(async (student) => {
-    if (!student.pdfPath) {
-      students.setError("No PDF found to delete");
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to delete the PDF for ${student.rollNumber}? This will allow you to scan again.`)) {
-      return;
-    }
-
-    try {
-      const response = await apiService.deletePDF(student._id, classes.currentClass);
-      if (response.success) {
-        // Immediately update local state to reflect changes
-        students.updateStudent(student._id, {
-          status: 'Pending',
-          isScanned: false,
-          scannedPages: [],
-          scanTime: null,
-          pdfPath: null,
-          pdfName: null,
-          pdfGeneratedAt: null
-        });
-
-        // Refresh student list to get updated data from backend
-        await students.fetchStudents(currentPage, itemsPerPage);
-
-        // Show success message
-        const successMessage = `✅ PDF deleted for ${student.rollNumber}. You can scan again.`;
-        students.setError(successMessage);
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          students.setError(null);
-        }, 3000);
-      } else {
-        students.setError(response.message || "Failed to delete PDF");
+  const handleDeletePDF = useCallback(
+    async (student) => {
+      if (!student.pdfPath) {
+        students.setError("No PDF found to delete");
+        return;
       }
-    } catch (error) {
-      console.error("Delete PDF failed:", error);
-      students.setError("Failed to delete PDF. Please try again.");
-    }
-  }, [classes, students, currentPage, itemsPerPage]);
+
+      if (
+        !window.confirm(
+          `Are you sure you want to delete the PDF for ${student.rollNumber}? This will allow you to scan again.`
+        )
+      ) {
+        return;
+      }
+
+      try {
+        const response = await apiService.deletePDF(
+          student._id,
+          classes.currentClass
+        );
+        if (response.success) {
+          // Immediately update local state to reflect changes
+          students.updateStudent(student._id, {
+            status: "Pending",
+            isScanned: false,
+            scannedPages: [],
+            scanTime: null,
+            pdfPath: null,
+            pdfName: null,
+            pdfGeneratedAt: null,
+          });
+
+          // Refresh student list to get updated data from backend
+          await students.fetchStudents(currentPage, itemsPerPage);
+
+          // Show success message
+          const successMessage = `✅ PDF deleted for ${student.rollNumber}. You can scan again.`;
+          students.setError(successMessage);
+          // Clear success message after 3 seconds
+          setTimeout(() => {
+            students.setError(null);
+          }, 3000);
+        } else {
+          students.setError(response.message || "Failed to delete PDF");
+        }
+      } catch (error) {
+        console.error("Delete PDF failed:", error);
+        students.setError("Failed to delete PDF. Please try again.");
+      }
+    },
+    [classes, students, currentPage, itemsPerPage]
+  );
 
   // Remark change handler
-  const handleRemarkChange = useCallback(async (studentId, remark) => {
-    try {
-      const response = await apiService.updateStudentRemark(studentId, remark, classes.currentClass);
-      if (response.success) {
-        students.updateStudent(studentId, { remark });
+  const handleRemarkChange = useCallback(
+    async (studentId, remark) => {
+      try {
+        const response = await apiService.updateStudentRemark(
+          studentId,
+          remark,
+          classes.currentClass
+        );
+        if (response.success) {
+          students.updateStudent(studentId, { remark });
+        }
+      } catch (error) {
+        console.error("Failed to update remark:", error);
       }
-    } catch (error) {
-      console.error("Failed to update remark:", error);
-    }
-  }, [classes, students]);
+    },
+    [classes, students]
+  );
 
   const hasNextStudent = useMemo(() => !!getNextStudent(), [getNextStudent]);
 
@@ -272,7 +339,12 @@ function App() {
   const handleMarkAsAbsent = useCallback(async () => {
     if (!selectedStudent) return;
     try {
-      const response = await apiService.updateStudentStatus(selectedStudent._id, 'Absent', '', classes.currentClass);
+      const response = await apiService.updateStudentStatus(
+        selectedStudent._id,
+        "Absent",
+        "",
+        classes.currentClass
+      );
       if (response.success) {
         await students.fetchStudents(currentPage, itemsPerPage);
         handleNextStudent();
@@ -281,13 +353,25 @@ function App() {
       console.error("Failed to mark as absent:", error);
       students.setError("Failed to mark student as absent");
     }
-  }, [selectedStudent, classes, students, currentPage, itemsPerPage, handleNextStudent]);
+  }, [
+    selectedStudent,
+    classes,
+    students,
+    currentPage,
+    itemsPerPage,
+    handleNextStudent,
+  ]);
 
   // Mark as missing handler
   const handleMarkAsMissing = useCallback(async () => {
     if (!selectedStudent) return;
     try {
-      const response = await apiService.updateStudentStatus(selectedStudent._id, 'Missing', '', classes.currentClass);
+      const response = await apiService.updateStudentStatus(
+        selectedStudent._id,
+        "Missing",
+        "",
+        classes.currentClass
+      );
       if (response.success) {
         await students.fetchStudents(currentPage, itemsPerPage);
         handleNextStudent();
@@ -296,14 +380,24 @@ function App() {
       console.error("Failed to mark as missing:", error);
       students.setError("Failed to mark student as missing");
     }
-  }, [selectedStudent, classes, students, currentPage, itemsPerPage, handleNextStudent]);
+  }, [
+    selectedStudent,
+    classes,
+    students,
+    currentPage,
+    itemsPerPage,
+    handleNextStudent,
+  ]);
 
   // Pagination handlers
-  const handlePageChange = useCallback((newPage) => {
-    if (newPage >= 1 && newPage <= students.totalPages) {
-      setCurrentPage(newPage);
-    }
-  }, [students.totalPages]);
+  const handlePageChange = useCallback(
+    (newPage) => {
+      if (newPage >= 1 && newPage <= students.totalPages) {
+        setCurrentPage(newPage);
+      }
+    },
+    [students.totalPages]
+  );
 
   const handleItemsPerPageChange = useCallback((e) => {
     const newItemsPerPage = parseInt(e.target.value);
@@ -319,19 +413,25 @@ function App() {
   }, []);
 
   // Memoized stats for Stats component
-  const statsData = useMemo(() => ({
-    total: students.totalStudents,
-    scanned: students.stats.scanned,
-    absent: students.stats.absent,
-    missing: students.stats.missing,
-  }), [students.totalStudents, students.stats]);
+  const statsData = useMemo(
+    () => ({
+      total: students.totalStudents,
+      scanned: students.stats.scanned,
+      absent: students.stats.absent,
+      missing: students.stats.missing,
+    }),
+    [students.totalStudents, students.stats]
+  );
 
   return (
     <div className="app">
       <header className="app-header">
         <div className="header-content">
-          <h1>📱 University Exam Copy Scanner</h1>
-          <p>Multi-Class Scanning System | Current Class: <strong>{classes.getClassDisplayName()}</strong></p>
+          <h1>📱 Micronic Exam Copy Scanner</h1>
+          <p>
+            Multi-Class Scanning System | Current Class:{" "}
+            <strong>{classes.getClassDisplayName()}</strong>
+          </p>
         </div>
 
         <div className="class-selector-section">
@@ -375,16 +475,18 @@ function App() {
         />
 
         {showPhotoCapture && selectedStudent && (
-          <Suspense fallback={
-            <div className="photo-capture-overlay">
-              <div className="photo-capture-modal">
-                <div style={{ padding: "20px", textAlign: "center" }}>
-                  <div className="spinner"></div>
-                  <p>Loading camera...</p>
+          <Suspense
+            fallback={
+              <div className="photo-capture-overlay">
+                <div className="photo-capture-modal">
+                  <div style={{ padding: "20px", textAlign: "center" }}>
+                    <div className="spinner"></div>
+                    <p>Loading camera...</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          }>
+            }
+          >
             <PhotoCapture
               student={selectedStudent}
               capturedPhotos={capturedPhotos}
