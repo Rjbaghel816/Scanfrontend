@@ -180,6 +180,11 @@ const PhotoCapture = React.memo((props) => {
                                 uploading={uploading}
                                 onCapture={handleTakePhoto}
                                 captureBtnRef={captureBtnRef}
+                                cropMargins={camera.cropMargins}
+                                onUpdateMargins={camera.setCropMargins}
+                                showCropUI={camera.showCropUI}
+                                onSaveCrop={camera.saveCropSettings}
+                                onResetCrop={camera.resetCropSettings}
                             />
 
                             <StatusActions
