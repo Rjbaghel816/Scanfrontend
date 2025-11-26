@@ -1,4 +1,6 @@
 const API_BASE = 'https://scandocs.univindia.com/api';
+// const API_BASE = 'http://localhost:5000/api';
+
 
 
 class ApiService {
@@ -205,8 +207,23 @@ class ApiService {
   // ✅ UPDATED: Download PDF with class
   async downloadPDF(studentId, className = 'default') {
     try {
+      // 1. Get PDF Info first to check path
+      const infoResponse = await this.getPDFInfo(studentId, className);
+      const pdfPath = infoResponse.pdfInfo.pdfPath;
+
+      let fetchUrl;
       const query = new URLSearchParams({ className }).toString();
-      const response = await fetch(`${API_BASE}/upload/pdf/${studentId}?${query}`);
+
+      // 2. If remote URL (DO Spaces), use PROXY
+      if (pdfPath && pdfPath.startsWith('http')) {
+        console.log('🌍 Remote PDF detected, using Proxy:', pdfPath);
+        fetchUrl = `${API_BASE}/proxy/pdf?url=${encodeURIComponent(pdfPath)}`;
+      } else {
+        // 3. Local file, use standard endpoint
+        fetchUrl = `${API_BASE}/upload/pdf/${studentId}?${query}`;
+      }
+
+      const response = await fetch(fetchUrl);
 
       if (!response.ok) {
         const error = await response.json();
