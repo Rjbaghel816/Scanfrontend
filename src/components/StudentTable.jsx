@@ -32,7 +32,7 @@ const StudentTable = memo(({
   // Memoized quick stats
   const quickStats = useMemo(() => {
     if (students.length === 0) return null;
-    
+
     return {
       scanned: students.filter((s) => s.isScanned).length,
       pdfs: students.filter((s) => s.pdfPath).length,
@@ -69,7 +69,7 @@ const StudentTable = memo(({
         <div className="class-info-badge">
           🎯 Current Class: <strong>{classDisplayName}</strong>
         </div>
-        
+
         <button
           className="excel-upload-btn"
           onClick={handleExcelUploadClick}
@@ -86,8 +86,8 @@ const StudentTable = memo(({
           style={{ display: "none" }}
         />
         <span className="upload-hint">
-          {!currentClass || currentClass === 'default' 
-            ? "Please select or create a class first" 
+          {!currentClass || currentClass === 'default'
+            ? "Please select or create a class first"
             : "Upload Excel with columns: Roll Number, Subject Code, Subject Name"}
         </span>
 
@@ -128,13 +128,13 @@ const StudentTable = memo(({
           <div className="empty-state">
             <div className="empty-icon">📊</div>
             <h3>
-              {!currentClass || currentClass === 'default' 
-                ? "Please Select or Create a Class" 
+              {!currentClass || currentClass === 'default'
+                ? "Please Select or Create a Class"
                 : "No Students Data"}
             </h3>
             <p>
-              {!currentClass || currentClass === 'default' 
-                ? "Choose a class from the dropdown above to get started" 
+              {!currentClass || currentClass === 'default'
+                ? "Choose a class from the dropdown above to get started"
                 : "Please upload an Excel file to get started"}
             </p>
             <button
@@ -213,4 +213,4 @@ const StudentTable = memo(({
 
 StudentTable.displayName = 'StudentTable';
 
-export default StudentTable;
+export default React.memo(StudentTable);

@@ -8,7 +8,7 @@ import './Stats.css';
  */
 const Stats = React.memo(({ total, scanned, absent, missing = 0 }) => {
   // Memoized remaining calculation
-  const remaining = useMemo(() => 
+  const remaining = useMemo(() =>
     total - scanned - absent - missing,
     [total, scanned, absent, missing]
   );
@@ -63,4 +63,4 @@ const Stats = React.memo(({ total, scanned, absent, missing = 0 }) => {
 
 Stats.displayName = 'Stats';
 
-export default Stats;
+export default React.memo(Stats);
