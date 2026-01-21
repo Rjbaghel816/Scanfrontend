@@ -185,6 +185,7 @@ const PhotoCapture = React.memo((props) => {
                                 showCropUI={camera.showCropUI}
                                 onSaveCrop={camera.saveCropSettings}
                                 onResetCrop={camera.resetCropSettings}
+                                setVideoElement={camera.setVideoElement}
                             />
 
                             <StatusActions

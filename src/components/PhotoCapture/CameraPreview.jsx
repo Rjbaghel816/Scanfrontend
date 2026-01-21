@@ -12,7 +12,8 @@ const CameraPreview = ({
     onUpdateMargins,
     showCropUI,
     onSaveCrop,
-    onResetCrop
+    onResetCrop,
+    setVideoElement
 }) => {
     const videoRef = useRef(null);
 
@@ -22,6 +23,13 @@ const CameraPreview = ({
             videoRef.current.srcObject = stream;
         }
     }, [stream]);
+
+    // Register video element for pixel-perfect capture
+    useEffect(() => {
+        if (videoRef.current && setVideoElement) {
+            setVideoElement(videoRef.current);
+        }
+    }, [setVideoElement]);
 
     return (
         <div className="capture-main">

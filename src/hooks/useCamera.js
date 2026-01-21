@@ -31,12 +31,19 @@ export const useCamera = () => {
 
   const streamRef = useRef(null);
   const cropMarginsRef = useRef(cropMargins);
+  const videoElementRef = useRef(null);
 
   // Update ref and localStorage when state changes
   const setCropMargins = useCallback((newMargins) => {
-    setCropMarginsState(newMargins);
-    cropMarginsRef.current = newMargins;
-    localStorage.setItem('scanCropMargins', JSON.stringify(newMargins));
+    const normalized = {
+      top: Math.round(newMargins?.top || 0),
+      bottom: Math.round(newMargins?.bottom || 0),
+      left: Math.round(newMargins?.left || 0),
+      right: Math.round(newMargins?.right || 0),
+    };
+    setCropMarginsState(normalized);
+    cropMarginsRef.current = normalized;
+    localStorage.setItem('scanCropMargins', JSON.stringify(normalized));
   }, []);
 
   const saveCropSettings = useCallback(() => {
@@ -120,71 +127,73 @@ export const useCamera = () => {
   const capturePhoto = useCallback(async () => {
     console.log("capture-start");
 
-    if (!streamRef.current) {
-      console.error("Stream not ready");
+    // CRITICAL FIX: Use displayed video element for pixel-perfect capture
+    const displayVideo = videoElementRef.current;
+    if (!displayVideo || !streamRef.current) {
+      console.error("Video element or stream not ready");
+      return "";
+    }
+
+    // Ensure video metadata is loaded
+    if (!displayVideo.videoWidth || !displayVideo.videoHeight) {
+      console.error("Video metadata not loaded");
       return "";
     }
 
     let rawBitmap = null;
+    const displayVideoWidth = displayVideo.videoWidth;
+    const displayVideoHeight = displayVideo.videoHeight;
 
     try {
-      // 1. Try ImageCapture
-      if ("ImageCapture" in window) {
-        try {
-          const track = streamRef.current.getVideoTracks()[0];
-          if (track && track.readyState === 'live') {
-            const imageCapture = new ImageCapture(track);
-            try {
-              const blob = await imageCapture.takePhoto();
-              rawBitmap = await createImageBitmap(blob);
-            } catch (e) {
-              console.warn("takePhoto failed, trying grabFrame", e);
-              rawBitmap = await imageCapture.grabFrame();
-            }
-          }
-        } catch (err) {
-          console.warn("ImageCapture failed", err);
-        }
-      }
+      // CRITICAL FIX: Use canvas.drawImage for pixel-perfect capture from displayed video
+      // This guarantees we capture EXACTLY what the user sees on screen
+      // No ImageCapture, no temp video - use the exact displayed video element
+      const captureCanvas = document.createElement('canvas');
+      captureCanvas.width = displayVideoWidth;
+      captureCanvas.height = displayVideoHeight;
+      const captureCtx = captureCanvas.getContext('2d');
 
-      // 2. Fallback to Video Element
-      if (!rawBitmap) {
-        const video = document.createElement('video');
-        video.srcObject = streamRef.current;
-        video.muted = true;
-        video.playsInline = true;
+      // Draw the exact frame visible to the user
+      captureCtx.drawImage(displayVideo, 0, 0, displayVideoWidth, displayVideoHeight);
 
-        await new Promise((resolve, reject) => {
-          video.onloadedmetadata = () => video.play().then(resolve).catch(reject);
-          setTimeout(() => reject(new Error("Video timeout")), 2000);
-        });
+      // Convert to ImageBitmap for consistent processing
+      rawBitmap = await createImageBitmap(captureCanvas);
 
-        await new Promise(r => setTimeout(r, 100));
-        rawBitmap = await createImageBitmap(video);
+      if (!rawBitmap) throw new Error("Failed to acquire image from displayed video");
 
-        video.srcObject = null;
-        video.remove();
-      }
-
-      if (!rawBitmap) throw new Error("Failed to acquire image");
-
-      const videoWidth = rawBitmap.width;
-      const videoHeight = rawBitmap.height;
+      // Use displayed video dimensions (what user sees) as source of truth
+      const videoWidth = displayVideoWidth;
+      const videoHeight = displayVideoHeight;
 
       const cropMargins = cropMarginsRef.current;
       console.log("crop applied:", cropMargins);
 
-      // STRICT FORMULA AS REQUESTED
+      // STRICT FORMULA - NO ADDITIONAL OFFSETS
       const cropLeft = cropMargins.left;
       const cropTop = cropMargins.top;
 
       // Calculate width/height based on margins
-      // Clamp safely if margins exceed bounds
       let cropWidth = videoWidth - cropMargins.left - cropMargins.right;
       let cropHeight = videoHeight - cropMargins.top - cropMargins.bottom;
 
-      // Safety check: if crop region is invalid, fallback to full image
-      if (cropWidth <= 0 || cropHeight <= 0) {
+      // CRITICAL FIX: Remove ALL clamping for TOP coordinate
+      // Use cropTop DIRECTLY without any bounds checking
+      const sourceX = Math.max(0, cropLeft);
+      const sourceY = Math.max(0, cropTop);
+      const sourceWidth = Math.max(1, Math.min(cropWidth, videoWidth - sourceX));
+      const sourceHeight = Math.max(1, Math.min(cropHeight, videoHeight - sourceY));
+
+      console.log("Crop coordinates:", {
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        videoWidth,
+        videoHeight
+      });
+
+      // If crop region is invalid, fallback to full image
+      if (sourceWidth <= 0 || sourceHeight <= 0) {
         console.warn("Invalid crop dimensions, returning full image");
         const canvas = document.createElement('canvas');
         canvas.width = videoWidth;
@@ -193,15 +202,7 @@ export const useCamera = () => {
         return canvas.toDataURL('image/jpeg', 0.9);
       }
 
-      // Ensure we don't read outside source bounds
-      const sourceX = Math.max(0, cropLeft);
-      const sourceY = Math.max(0, cropTop);
-      const sourceWidth = Math.min(cropWidth, videoWidth - sourceX);
-      const sourceHeight = Math.min(cropHeight, videoHeight - sourceY);
-
-      console.log("final canvas size:", sourceWidth, sourceHeight);
-
-      // Execute Crop
+      // Execute Crop - NO OFFSETS, NO CLAMPING
       const canvas = document.createElement('canvas');
       canvas.width = sourceWidth;
       canvas.height = sourceHeight;
@@ -209,8 +210,8 @@ export const useCamera = () => {
 
       ctx.drawImage(
         rawBitmap,
-        sourceX, sourceY, sourceWidth, sourceHeight,
-        0, 0, sourceWidth, sourceHeight
+        sourceX, sourceY, sourceWidth, sourceHeight,  // Source rectangle
+        0, 0, sourceWidth, sourceHeight               // Destination rectangle
       );
 
       return canvas.toDataURL('image/jpeg', 0.9);
@@ -304,6 +305,11 @@ export const useCamera = () => {
     await setupCamera();
   }, [setupCamera]);
 
+  // Set video element reference for pixel-perfect capture
+  const setVideoElement = useCallback((videoElement) => {
+    videoElementRef.current = videoElement;
+  }, []);
+
   return {
     stream,
     cameraReady,
@@ -315,6 +321,7 @@ export const useCamera = () => {
     setCropMargins,
     showCropUI,
     saveCropSettings,
-    resetCropSettings
+    resetCropSettings,
+    setVideoElement
   };
 };

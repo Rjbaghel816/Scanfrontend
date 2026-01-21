@@ -1,5 +1,5 @@
-const API_BASE = 'https://scandocs.univindia.com/api';
-// const API_BASE = 'http://localhost:5000/api';
+// const API_BASE = 'https://scandocs.univindia.com/api';
+const API_BASE = 'http://localhost:5000/api';
 
 
 
