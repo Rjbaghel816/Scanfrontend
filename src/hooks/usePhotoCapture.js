@@ -1,11 +1,12 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 /**
  * Custom hook for managing photo capture state and logic
  * @param {Object} props - Props from the main component
  * @param {Object} camera - Camera hook return value
+ * @param {Object} copyNumberHook - Copy number hook return value
  */
-export const usePhotoCapture = (props, camera) => {
+export const usePhotoCapture = (props, camera, copyNumberHook) => {
     const {
         student,
         capturedPhotos = [],
@@ -17,6 +18,10 @@ export const usePhotoCapture = (props, camera) => {
     } = props;
 
     const { cameraReady, capturePhoto } = camera;
+    const { isValid: isCopyNumberValid, trimmedCopyNumber } = copyNumberHook || {
+        isValid: false,
+        trimmedCopyNumber: ''
+    };
 
     // Local state
     const [currentPhoto, setCurrentPhoto] = useState(null);
@@ -27,9 +32,22 @@ export const usePhotoCapture = (props, camera) => {
     const captureBtnRef = useRef(null);
     const keepAndAddRef = useRef(null);
 
+
+
     // Actions
     const handleTakePhoto = useCallback(async () => {
-        if (isProcessing || !cameraReady) return;
+        if (isProcessing) {
+            console.warn("Capture already in progress");
+            return;
+        }
+        if (!cameraReady) {
+            console.warn("Camera not ready");
+            return;
+        }
+        if (!isCopyNumberValid) {
+            console.warn("Copy number invalid");
+            return;
+        }
 
         try {
             setIsProcessing(true);
@@ -39,16 +57,18 @@ export const usePhotoCapture = (props, camera) => {
             const photoData = await capturePhoto();
             if (photoData) {
                 setCurrentPhoto(photoData);
+            } else {
+                console.error("Capture returned empty data");
             }
         } catch (error) {
             console.error("Error capturing photo:", error);
         } finally {
             setIsProcessing(false);
         }
-    }, [isProcessing, cameraReady, capturePhoto]);
+    }, [isProcessing, cameraReady, capturePhoto, isCopyNumberValid]);
 
     const addCurrentPhotoToCaptured = useCallback(() => {
-        if (!currentPhoto) return false;
+        if (!currentPhoto || !isCopyNumberValid) return false;
 
         try {
             const newPhoto = {
@@ -57,6 +77,7 @@ export const usePhotoCapture = (props, camera) => {
                 pageNumber: (capturedPhotos?.length || 0) + 1,
                 timestamp: new Date().toISOString(),
                 studentRoll: student?.rollNumber || 'Unknown',
+                copyNumber: trimmedCopyNumber, // Store copy number with photo
             };
 
             if (onPhotosUpdate) {
@@ -69,19 +90,19 @@ export const usePhotoCapture = (props, camera) => {
             console.error("Error adding photo:", error);
             return false;
         }
-    }, [currentPhoto, capturedPhotos, onPhotosUpdate, student]);
+    }, [currentPhoto, capturedPhotos, onPhotosUpdate, student, isCopyNumberValid, trimmedCopyNumber]);
 
     const handleKeepAndAddMore = useCallback(() => {
-        if (currentPhoto && !isProcessing) {
+        if (currentPhoto && !isProcessing && isCopyNumberValid) {
             addCurrentPhotoToCaptured();
-            // Focus management is handled by useEffect in the component or we can return a ref trigger
+            // Focus management
             setTimeout(() => {
                 if (captureBtnRef.current) {
                     captureBtnRef.current.focus();
                 }
             }, 100);
         }
-    }, [currentPhoto, isProcessing, addCurrentPhotoToCaptured]);
+    }, [currentPhoto, isProcessing, addCurrentPhotoToCaptured, isCopyNumberValid]);
 
     const handleRetake = useCallback(() => {
         setCurrentPhoto(null);
@@ -92,7 +113,12 @@ export const usePhotoCapture = (props, camera) => {
 
         if (totalPhotos === 0) {
             alert("Please capture at least one photo before finishing.");
-            return;
+            return false;
+        }
+
+        if (!isCopyNumberValid) {
+            alert("Please enter a valid copy number before finishing.");
+            return false;
         }
 
         try {
@@ -108,6 +134,7 @@ export const usePhotoCapture = (props, camera) => {
                     pageNumber: (capturedPhotos?.length || 0) + 1,
                     timestamp: new Date().toISOString(),
                     studentRoll: student?.rollNumber || 'Unknown',
+                    copyNumber: trimmedCopyNumber,
                 };
                 finalPhotos.push(newPhoto);
             }
@@ -119,18 +146,17 @@ export const usePhotoCapture = (props, camera) => {
                 if (onPhotosUpdate) {
                     onPhotosUpdate([]);
                 }
-
-                // Auto move to next student
-                if (hasNextStudent) {
-                    setTimeout(() => {
-                        onNextStudent();
-                    }, 500);
-                } else {
-                    onClose();
+                // Reset copy number
+                if (copyNumberHook?.resetCopyNumber) {
+                    copyNumberHook.resetCopyNumber();
                 }
+
+                return true;
             }
+            return false;
         } catch (error) {
             console.error("Error finishing photo session:", error);
+            return false;
         } finally {
             setUploading(false);
         }
@@ -139,10 +165,10 @@ export const usePhotoCapture = (props, camera) => {
         capturedPhotos,
         onFinish,
         student,
-        hasNextStudent,
+        isCopyNumberValid,
+        trimmedCopyNumber,
         onPhotosUpdate,
-        onNextStudent,
-        onClose,
+        copyNumberHook,
     ]);
 
     const handleRemovePhoto = useCallback((photoId) => {
@@ -156,14 +182,19 @@ export const usePhotoCapture = (props, camera) => {
         if (onPhotosUpdate) {
             onPhotosUpdate([]);
         }
+        // Reset copy number when moving to next student
+        if (copyNumberHook?.resetCopyNumber) {
+            copyNumberHook.resetCopyNumber();
+        }
         onNextStudent();
-    }, [onNextStudent, onPhotosUpdate]);
+    }, [onNextStudent, onPhotosUpdate, copyNumberHook]);
 
     return {
         state: {
             currentPhoto,
             isProcessing,
             uploading,
+            isCopyNumberValid,
         },
         actions: {
             handleTakePhoto,

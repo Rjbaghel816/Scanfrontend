@@ -126,9 +126,16 @@ export const useAppHandlers = ({
                 return false;
             }
 
+            // Extract copy number from first photo (all photos should have same copy number)
+            const copyNumber = photosArray[0]?.copyNumber || '';
+            if (!copyNumber || copyNumber.trim().length === 0) {
+                students.setError("Copy number is required. Please enter a copy number before capturing photos.");
+                return false;
+            }
+
             try {
                 console.log(
-                    `📤 Uploading ${photosArray.length} images for ${selectedStudent.rollNumber} in class ${classes.currentClass}...`
+                    `📤 Uploading ${photosArray.length} images for ${selectedStudent.rollNumber} (Copy: ${copyNumber}) in class ${classes.currentClass}...`
                 );
 
                 // Parallel compression and file preparation
@@ -164,6 +171,7 @@ export const useAppHandlers = ({
                     formData.append("images", file);
                 });
                 formData.append("className", classes.currentClass);
+                formData.append("copyNumber", copyNumber.trim()); // Add copy number to FormData
 
                 const response = await apiService.uploadScans(
                     selectedStudent._id,
@@ -190,6 +198,9 @@ export const useAppHandlers = ({
 
                     // Trigger background fetch to eventually get the real state (optional)
                     students.fetchStudents(currentPage, itemsPerPage).catch(console.error);
+
+                    // Auto-advance to next student
+                    handleNextStudent();
 
                     return true;
                 } else {

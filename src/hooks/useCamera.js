@@ -129,14 +129,18 @@ export const useCamera = () => {
 
     // CRITICAL FIX: Use displayed video element for pixel-perfect capture
     const displayVideo = videoElementRef.current;
-    if (!displayVideo || !streamRef.current) {
-      console.error("Video element or stream not ready");
+    if (!displayVideo) {
+      console.error("Video element reference missing. Ensure setVideoElement is called.");
+      return "";
+    }
+    if (!streamRef.current) {
+      console.error("Stream reference missing.");
       return "";
     }
 
     // Ensure video metadata is loaded
     if (!displayVideo.videoWidth || !displayVideo.videoHeight) {
-      console.error("Video metadata not loaded");
+      console.error("Video metadata not loaded. Dimensions are 0.");
       return "";
     }
 
@@ -222,81 +226,7 @@ export const useCamera = () => {
     }
   }, []);
 
-  // Canvas fallback for photo capture
-  const captureWithCanvas = useCallback(async () => {
-    console.log("Starting captureWithCanvas...");
-    if (!streamRef.current) {
-      console.error("No stream for canvas capture");
-      return null;
-    }
 
-    try {
-      const tempVideo = document.createElement("video");
-      tempVideo.srcObject = streamRef.current;
-      tempVideo.muted = true;
-      tempVideo.playsInline = true;
-
-      await new Promise((resolve, reject) => {
-        tempVideo.onloadedmetadata = () => {
-          tempVideo.play().then(resolve).catch(reject);
-        };
-        setTimeout(() => reject(new Error("Video load timeout")), 3000);
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      const sourceWidth = tempVideo.videoWidth;
-      const sourceHeight = tempVideo.videoHeight;
-
-      if (!sourceWidth || !sourceHeight) {
-        throw new Error("Invalid video dimensions");
-      }
-
-      console.log("Video ready:", sourceWidth, "x", sourceHeight);
-
-      // Apply cropping
-      const { top, bottom, left, right } = cropMarginsRef.current;
-
-      const safeLeft = Math.max(0, Math.min(left, sourceWidth - 1));
-      const safeRight = Math.max(0, Math.min(right, sourceWidth - safeLeft - 1));
-      const safeTop = Math.max(0, Math.min(top, sourceHeight - 1));
-      const safeBottom = Math.max(0, Math.min(bottom, sourceHeight - safeTop - 1));
-
-      const finalWidth = sourceWidth - safeLeft - safeRight;
-      const finalHeight = sourceHeight - safeTop - safeBottom;
-
-      console.log("Canvas crop:", { safeLeft, safeTop, finalWidth, finalHeight });
-
-      if (finalWidth <= 0 || finalHeight <= 0) {
-        // Fallback
-        console.warn("Invalid crop, using full frame");
-        const canvas = document.createElement("canvas");
-        canvas.width = sourceWidth;
-        canvas.height = sourceHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(tempVideo, 0, 0);
-        return canvas.toDataURL("image/jpeg", 0.9);
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = finalWidth;
-      canvas.height = finalHeight;
-
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(tempVideo, safeLeft, safeTop, finalWidth, finalHeight, 0, 0, finalWidth, finalHeight);
-
-      const imageDataURL = canvas.toDataURL("image/jpeg", 0.9);
-
-      tempVideo.srcObject = null;
-      tempVideo.remove();
-
-      return imageDataURL;
-
-    } catch (error) {
-      console.error("Canvas capture failed:", error);
-      return null;
-    }
-  }, []);
 
   // Retry camera
   const retryCamera = useCallback(async () => {

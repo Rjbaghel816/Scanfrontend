@@ -13,9 +13,23 @@ const CameraPreview = ({
     showCropUI,
     onSaveCrop,
     onResetCrop,
-    setVideoElement
+    setVideoElement,
+    copyNumber,
+    onCopyNumberChange,
+    isCopyNumberValid
 }) => {
     const videoRef = useRef(null);
+    const copyNumberInputRef = useRef(null);
+
+    // Auto-focus copy number input when camera is ready and no photo is being processed
+    useEffect(() => {
+        if (!isProcessing && cameraReady && copyNumberInputRef.current && !copyNumber) {
+            const timeout = setTimeout(() => {
+                copyNumberInputRef.current?.focus();
+            }, 200);
+            return () => clearTimeout(timeout);
+        }
+    }, [cameraReady, isProcessing, copyNumber]);
 
     // Attach stream to video element
     useEffect(() => {
@@ -24,23 +38,24 @@ const CameraPreview = ({
         }
     }, [stream]);
 
-    // Register video element for pixel-perfect capture
-    useEffect(() => {
-        if (videoRef.current && setVideoElement) {
-            setVideoElement(videoRef.current);
-        }
-    }, [setVideoElement]);
+
 
     return (
         <div className="capture-main">
             <div className="camera-preview-container">
                 <video
-                    ref={videoRef}
+                    ref={(el) => {
+                        videoRef.current = el;
+                        if (setVideoElement) setVideoElement(el);
+                    }}
                     autoPlay
                     playsInline
                     muted
                     className="live-camera-feed"
-                    style={{ display: isProcessing ? 'none' : 'block' }}
+                    style={{
+                        opacity: isProcessing ? 0 : 1,
+                        position: isProcessing ? 'absolute' : 'relative'
+                    }}
                 />
                 {/* Alignment Guides */}
                 {!isProcessing && (
@@ -70,50 +85,61 @@ const CameraPreview = ({
                 )}
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '10px' }}>
+            <div className="capture-controls-wrapper">
                 {!isProcessing && (
-                    <button
-                        ref={captureBtnRef}
-                        type="button"
-                        className="capture-btn-large"
-                        onClick={onCapture}
-                        disabled={!cameraReady || uploading}
-                        style={{ flex: 1 }}
-                    >
-                        <div className="camera-icon-large">📷</div>
-                        <div className="capture-text">
-                            {cameraReady
-                                ? "Click to Capture Photo"
-                                : "Camera Loading..."}
-                        </div>
-                        <div className="shortcut-hint">
-                            {cameraReady ? "Or Press Enter Key" : "Please Wait"}
-                        </div>
-                    </button>
+                    <div className="copy-number-input-wrapper">
+                        <label htmlFor="copy-number-input" className="copy-number-label">
+                            Copy Number
+                        </label>
+                        <input
+                            ref={copyNumberInputRef}
+                            id="copy-number-input"
+                            type="text"
+                            className="copy-number-input"
+                            placeholder="Enter copy number"
+                            value={copyNumber || ''}
+                            onChange={(e) => onCopyNumberChange?.(e.target.value)}
+                            disabled={uploading}
+                            autoComplete="off"
+                        />
+                    </div>
                 )}
 
-                {!isProcessing && !showCropUI && (
-                    <button
-                        type="button"
-                        onClick={onResetCrop}
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                            color: 'white',
-                            padding: '0 20px',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minWidth: '100px'
-                        }}
-                    >
-                        <span style={{ fontSize: '20px' }}>✂️</span>
-                        <span style={{ fontSize: '12px', marginTop: '4px' }}>Adjust Crop</span>
-                    </button>
-                )}
+                <div className="capture-controls-row">
+                    {!isProcessing && (
+                        <button
+                            ref={captureBtnRef}
+                            type="button"
+                            className="capture-btn-large"
+                            onClick={onCapture}
+                            disabled={!cameraReady || uploading || !isCopyNumberValid}
+                            style={{ flex: 1 }}
+                        >
+                            <div className="camera-icon-large">📷</div>
+                            <div className="capture-text">
+                                {cameraReady
+                                    ? isCopyNumberValid
+                                        ? "Click to Capture Photo"
+                                        : "Enter Copy Number First"
+                                    : "Camera Loading..."}
+                            </div>
+                            <div className="shortcut-hint">
+                                {cameraReady && isCopyNumberValid ? "Or Press Enter Key" : "Please Wait"}
+                            </div>
+                        </button>
+                    )}
+
+                    {!isProcessing && !showCropUI && (
+                        <button
+                            type="button"
+                            onClick={onResetCrop}
+                            className="crop-adjust-btn"
+                        >
+                            <span style={{ fontSize: '20px' }}>✂️</span>
+                            <span style={{ fontSize: '12px', marginTop: '4px' }}>Adjust Crop</span>
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

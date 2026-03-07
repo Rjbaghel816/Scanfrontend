@@ -21,7 +21,8 @@ export const useKeyboardShortcuts = (handlers, state) => {
         cameraReady,
         capturedPhotos,
         uploading,
-        hasNextStudent
+        hasNextStudent,
+        isCopyNumberValid
     } = state;
 
     const handleKeyPress = useCallback((e) => {
@@ -45,7 +46,7 @@ export const useKeyboardShortcuts = (handlers, state) => {
 
         switch (e.key) {
             case 'Enter':
-                if (!currentPhoto && !isProcessing && cameraReady) {
+                if (!currentPhoto && !isProcessing && cameraReady && isCopyNumberValid) {
                     onCapture();
                 } else if (currentPhoto) {
                     onKeepAndAdd();
@@ -86,6 +87,7 @@ export const useKeyboardShortcuts = (handlers, state) => {
         capturedPhotos,
         uploading,
         hasNextStudent,
+        isCopyNumberValid,
         onCapture,
         onRetake,
         onFinish,

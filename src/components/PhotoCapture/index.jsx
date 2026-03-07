@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from "react";
 import { useCamera } from "../../hooks/useCamera";
 import { usePhotoCapture } from "../../hooks/usePhotoCapture";
+import { useCopyNumber } from "../../hooks/useCopyNumber";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import Header from "./Header";
 import CameraPreview from "./CameraPreview";
@@ -29,9 +30,10 @@ const PhotoCapture = React.memo((props) => {
 
     // Custom hooks
     const camera = useCamera();
-    const { state, actions, refs } = usePhotoCapture(props, camera);
+    const copyNumberHook = useCopyNumber();
+    const { state, actions, refs } = usePhotoCapture(props, camera, copyNumberHook);
 
-    const { currentPhoto, isProcessing, uploading } = state;
+    const { currentPhoto, isProcessing, uploading, isCopyNumberValid } = state;
     const {
         handleTakePhoto,
         handleKeepAndAddMore,
@@ -78,14 +80,24 @@ const PhotoCapture = React.memo((props) => {
     // Auto-focus management
     useEffect(() => {
         const timeout = setTimeout(() => {
+            // Only auto-focus if we are NOT currently typing in the input
+            const activeElement = document.activeElement;
+            const isInputFocused = activeElement && activeElement.classList.contains('copy-number-input');
+
             if (currentPhoto && keepAndAddRef.current) {
                 keepAndAddRef.current.focus();
-            } else if (!currentPhoto && captureBtnRef.current && cameraReady) {
+            } else if (!currentPhoto && captureBtnRef.current && cameraReady && isCopyNumberValid && !isInputFocused) {
+                // Only focus capture button if we're not already in the input
                 captureBtnRef.current.focus();
             }
         }, 100);
         return () => clearTimeout(timeout);
-    }, [currentPhoto, cameraReady, keepAndAddRef, captureBtnRef]);
+    }, [currentPhoto, keepAndAddRef, captureBtnRef]); // Removed isCopyNumberValid and cameraReady to prevent focus stealing
+
+    // Reset copy number when student changes
+    useEffect(() => {
+        copyNumberHook.resetCopyNumber();
+    }, [student?.rollNumber]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Memoized derived state
     const studentData = useMemo(() => student || {
@@ -186,6 +198,9 @@ const PhotoCapture = React.memo((props) => {
                                 onSaveCrop={camera.saveCropSettings}
                                 onResetCrop={camera.resetCropSettings}
                                 setVideoElement={camera.setVideoElement}
+                                copyNumber={copyNumberHook.copyNumber}
+                                onCopyNumberChange={copyNumberHook.updateCopyNumber}
+                                isCopyNumberValid={isCopyNumberValid}
                             />
 
                             <StatusActions

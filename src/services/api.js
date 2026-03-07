@@ -1,5 +1,5 @@
 // const API_BASE = 'https://scandocs.univindia.com/api';
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'http://localhost:5002/api';
 
 
 
@@ -233,9 +233,14 @@ class ApiService {
       const contentDisposition = response.headers.get('content-disposition');
       let filename = `Copy_${studentId}.pdf`;
 
+      // Try to get filename from PDF info first (most reliable)
+      if (infoResponse && infoResponse.pdfInfo && infoResponse.pdfInfo.pdfName) {
+        filename = infoResponse.pdfInfo.pdfName;
+      }
+
       if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-        if (filenameMatch) {
+        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
           filename = filenameMatch[1];
         }
       }
