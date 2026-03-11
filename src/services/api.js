@@ -1,7 +1,9 @@
-// const API_BASE = 'https://scandocs.univindia.com/api';
-const API_BASE = 'http://localhost:5002/api';
-
-
+// Base URL for backend API
+// - Defaults to local Express server on port 5000 (see `server.js`)
+// - Can be overridden at build time via REACT_APP_API_BASE
+const API_BASE =
+  (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_BASE) ||
+  'http://localhost:5000/api';
 
 class ApiService {
   async request(endpoint, options = {}) {
@@ -55,30 +57,38 @@ class ApiService {
     return this.request('/students/classes');
   }
 
-  // ✅ UPDATED: Get students with class parameter
+  // ✅ NEW: Create a new class (persists collection to MongoDB)
+  async createClass(className) {
+    return this.request('/students/classes', {
+      method: 'POST',
+      body: { className }
+    });
+  }
+
+  // ✅ UPDATED: Get students with class & subject parameter
   async getStudents(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/students?${query}`);
   }
 
-  async getStudent(studentId, className = 'default') {
-    const query = new URLSearchParams({ className }).toString();
+  async getStudent(studentId, className = 'default', subject = '') {
+    const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
     return this.request(`/students/${studentId}?${query}`);
   }
 
-  // ✅ UPDATED: Update student status with class
-  async updateStudentStatus(studentId, status, remark = '', className = 'default') {
+  // ✅ UPDATED: Update student status with class & subject
+  async updateStudentStatus(studentId, status, remark = '', className = 'default', subject = '') {
     return this.request(`/students/${studentId}/status`, {
       method: 'PATCH',
-      body: { status, remark, className }
+      body: { status, remark, className, subject }
     });
   }
 
-  // ✅ UPDATED: Update student remark with class
-  async updateStudentRemark(studentId, remark, className = 'default') {
+  // ✅ UPDATED: Update student remark with class & subject
+  async updateStudentRemark(studentId, remark, className = 'default', subject = '') {
     return this.request(`/students/${studentId}/remark`, {
       method: 'PATCH',
-      body: { remark, className }
+      body: { remark, className, subject }
     });
   }
 
@@ -114,30 +124,36 @@ class ApiService {
     }
   }
 
-  // ✅ UPDATED: Delete student with class
-  async deleteStudent(studentId, className = 'default') {
-    const query = new URLSearchParams({ className }).toString();
+  // ✅ UPDATED: Delete student with class & subject
+  async deleteStudent(studentId, className = 'default', subject = '') {
+    const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
     return this.request(`/students/${studentId}?${query}`, {
       method: 'DELETE'
     });
   }
 
-  async deleteAllStudents(className = 'default') {
-    const query = new URLSearchParams({ className }).toString();
+  async deleteAllStudents(className = 'default', subject = '') {
+    const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
     return this.request(`/students?${query}`, {
       method: 'DELETE'
     });
   }
 
-  // ✅ FIXED: Upload scans with class
-  async uploadScans(studentId, formData, className = 'default') {
+  // ✅ FIXED: Upload scans with class & subject
+  async uploadScans(studentId, formData, className = 'default', subject = '') {
     // ✅ FIX: Remove duplicate className and add only once
     if (formData.has('className')) {
       formData.delete('className');
     }
+    if (formData.has('subject')) {
+      formData.delete('subject');
+    }
 
     if (className && className !== 'default') {
       formData.append('className', className);
+    }
+    if (subject) {
+      formData.append('subject', subject);
     }
 
     const response = await fetch(`${API_BASE}/upload/scan/${studentId}`, {
@@ -153,18 +169,18 @@ class ApiService {
     return response.json();
   }
 
-  // ✅ UPDATED: Delete scans with class
-  async deleteScans(studentId, className = 'default') {
-    const query = new URLSearchParams({ className }).toString();
+  // ✅ UPDATED: Delete scans with class & subject
+  async deleteScans(studentId, className = 'default', subject = '') {
+    const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
     return this.request(`/upload/scan/${studentId}?${query}`, {
       method: 'DELETE'
     });
   }
 
-  // ✅ UPDATED: Generate PDF with class
-  async generatePDF(studentId, className = 'default') {
+  // ✅ UPDATED: Generate PDF with class & subject
+  async generatePDF(studentId, className = 'default', subject = '') {
     try {
-      const query = new URLSearchParams({ className }).toString();
+      const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
       const response = await fetch(`${API_BASE}/students/${studentId}/generate-pdf?${query}`);
 
       if (!response.ok) {
@@ -204,15 +220,15 @@ class ApiService {
     }
   }
 
-  // ✅ UPDATED: Download PDF with class
-  async downloadPDF(studentId, className = 'default') {
+  // ✅ UPDATED: Download PDF with class & subject
+  async downloadPDF(studentId, className = 'default', subject = '') {
     try {
       // 1. Get PDF Info first to check path
-      const infoResponse = await this.getPDFInfo(studentId, className);
+      const infoResponse = await this.getPDFInfo(studentId, className, subject);
       const pdfPath = infoResponse.pdfInfo.pdfPath;
 
       let fetchUrl;
-      const query = new URLSearchParams({ className }).toString();
+      const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
 
       // 2. If remote URL (DO Spaces), use PROXY
       if (pdfPath && pdfPath.startsWith('http')) {
@@ -265,39 +281,39 @@ class ApiService {
     }
   }
 
-  // ✅ UPDATED: Get stats with class
-  async getStats(className = 'default') {
-    const query = new URLSearchParams({ className }).toString();
+  // ✅ UPDATED: Get stats with class & subject
+  async getStats(className = 'default', subject = '') {
+    const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
     return this.request(`/students/stats/summary?${query}`);
   }
 
-  // ✅ NEW: Get PDF info with class
-  async getPDFInfo(studentId, className = 'default') {
-    const query = new URLSearchParams({ className }).toString();
+  // ✅ NEW: Get PDF info with class & subject
+  async getPDFInfo(studentId, className = 'default', subject = '') {
+    const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
     return this.request(`/upload/pdf/${studentId}/info?${query}`);
   }
 
-  // ✅ NEW: Rescan student with class
-  async rescanStudent(studentId, className = 'default') {
-    const query = new URLSearchParams({ className }).toString();
+  // ✅ NEW: Rescan student with class & subject
+  async rescanStudent(studentId, className = 'default', subject = '') {
+    const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
     return this.request(`/upload/rescan/${studentId}?${query}`, {
       method: 'POST'
     });
   }
 
   // ✅ NEW: Delete PDF file and database entry
-  async deletePDF(studentId, className = 'default') {
-    const query = new URLSearchParams({ className }).toString();
+  async deletePDF(studentId, className = 'default', subject = '') {
+    const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
     return this.request(`/upload/pdf/${studentId}?${query}`, {
       method: 'DELETE'
     });
   }
 
-  // ✅ NEW: Batch delete scans with class
-  async batchDeleteScans(studentIds, className = 'default') {
+  // ✅ NEW: Batch delete scans with class & subject
+  async batchDeleteScans(studentIds, className = 'default', subject = '') {
     return this.request('/upload/batch-delete', {
       method: 'POST',
-      body: { studentIds, className }
+      body: { studentIds, className, subject }
     });
   }
 
@@ -329,18 +345,18 @@ class ApiService {
     return new File([blob], filename, { type: 'image/jpeg' });
   }
 
-  // ✅ UPDATED: Batch operations with class
-  async batchUpdateStatus(updates, className = 'default') {
+  // ✅ UPDATED: Batch operations with class & subject
+  async batchUpdateStatus(updates, className = 'default', subject = '') {
     return this.request('/students/batch/status', {
       method: 'PATCH',
-      body: { updates, className }
+      body: { updates, className, subject }
     });
   }
 
-  async batchGeneratePDFs(studentIds, className = 'default') {
+  async batchGeneratePDFs(studentIds, className = 'default', subject = '') {
     return this.request('/students/batch/generate-pdf', {
       method: 'POST',
-      body: { studentIds, className }
+      body: { studentIds, className, subject }
     });
   }
 
