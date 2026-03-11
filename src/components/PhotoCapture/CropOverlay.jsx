@@ -71,23 +71,28 @@ const CropOverlay = ({
     const updateDimensions = () => {
       if (videoRef.current) {
         const rect = videoRef.current.getBoundingClientRect();
-        setDimensions({
-          width: rect.width,
-          height: rect.height,
-          left: rect.left,
-          top: rect.top,
-        });
+        setDimensions((prev) => {
+          // Use rounded values to avoid floating point precision issues causing infinite re-renders
+          const newWidth = Math.round(rect.width);
+          const newHeight = Math.round(rect.height);
+          const newLeft = Math.round(rect.left);
+          const newTop = Math.round(rect.top);
 
-        // Update scaling reference immediately
-        const displayRect = getDisplayedVideoRect();
-        if (displayRect.width && displayRect.height) {
-          displayScaleRef.current = {
-            scaleX: displayRect.width / displayRect.videoWidth,
-            scaleY: displayRect.height / displayRect.videoHeight,
-            offsetX: displayRect.offsetX,
-            offsetY: displayRect.offsetY,
+          if (
+            Math.abs(prev.width - newWidth) <= 1 &&
+            Math.abs(prev.height - newHeight) <= 1 &&
+            Math.abs(prev.left - newLeft) <= 1 &&
+            Math.abs(prev.top - newTop) <= 1
+          ) {
+            return prev;
+          }
+          return {
+            width: newWidth,
+            height: newHeight,
+            left: newLeft,
+            top: newTop,
           };
-        }
+        });
       }
     };
 
@@ -99,7 +104,20 @@ const CropOverlay = ({
       window.removeEventListener("resize", updateDimensions);
       clearInterval(interval);
     };
-  }, [videoRef, stream, getDisplayedVideoRect]);
+  }, [videoRef, stream]);
+
+  // Update display scale ref whenever dimensions change
+  useEffect(() => {
+    const displayRect = getDisplayedVideoRect();
+    if (displayRect.width && displayRect.height) {
+      displayScaleRef.current = {
+        scaleX: displayRect.width / displayRect.videoWidth,
+        scaleY: displayRect.height / displayRect.videoHeight,
+        offsetX: displayRect.offsetX,
+        offsetY: displayRect.offsetY,
+      };
+    }
+  }, [getDisplayedVideoRect]);
 
   // Calculate the visual box based on margins
   const getBoxStyle = () => {

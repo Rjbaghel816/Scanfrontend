@@ -38,16 +38,18 @@ const CameraPreview = ({
         }
     }, [stream]);
 
-
+    // Pass the video element stable reference to parent without triggering render loops
+    useEffect(() => {
+        if (setVideoElement && videoRef.current) {
+            setVideoElement(videoRef.current);
+        }
+    }, [setVideoElement]);
 
     return (
         <div className="capture-main">
             <div className="camera-preview-container">
                 <video
-                    ref={(el) => {
-                        videoRef.current = el;
-                        if (setVideoElement) setVideoElement(el);
-                    }}
+                    ref={videoRef}
                     autoPlay
                     playsInline
                     muted
@@ -110,10 +112,9 @@ const CameraPreview = ({
                         <button
                             ref={captureBtnRef}
                             type="button"
-                            className="capture-btn-large"
+                            className={`capture-btn-large ${(!cameraReady || !isCopyNumberValid) ? 'waiting-state' : ''}`}
                             onClick={onCapture}
                             disabled={!cameraReady || uploading || !isCopyNumberValid}
-                            style={{ flex: 1 }}
                         >
                             <div className="camera-icon-large">📷</div>
                             <div className="capture-text">
