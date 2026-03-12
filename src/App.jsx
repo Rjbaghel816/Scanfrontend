@@ -3,9 +3,11 @@ import StudentTable from "./components/StudentTable";
 import Stats from "./components/Stats";
 import ClassSelector from "./components/ClassSelector";
 import ErrorBanner from "./components/ErrorBanner";
+import ExcelUploader from "./components/ExcelUploader";
 import { useStudents } from "./hooks/useStudents";
 import { useClasses } from "./hooks/useClasses";
 import { useAppHandlers } from "./hooks/useAppHandlers";
+import { useUploadExcel } from "./hooks/useUploadExcel";
 import "./App.css";
 
 // Code splitting: Lazy load PhotoCapture (large component)
@@ -28,13 +30,19 @@ function App() {
 
   // Custom hooks
   const classes = useClasses();
-  const students = useStudents(classes.currentClass, currentPage, itemsPerPage);
+  const students = useStudents(classes.currentClass, classes.currentSubject, currentPage, itemsPerPage);
+
+  const { isUploading, handleFileUpload } = useUploadExcel({
+    classes,
+    students,
+    setIsExcelUploaded,
+    itemsPerPage
+  });
 
   // Handlers Hook
   const {
     handleClassChange,
     handleCreateNewClass,
-    handleFileUpload,
     handlePhotosCaptured,
     handleNextStudent,
     handleStatusChange,
@@ -91,17 +99,6 @@ function App() {
             <strong>{classes.getClassDisplayName()}</strong>
           </p>
         </div>
-
-        <div className="class-selector-section">
-          <ClassSelector
-            currentClass={classes.currentClass}
-            availableClasses={classes.availableClasses}
-            newClassName={classes.newClassName}
-            onClassChange={handleClassChange}
-            onNewClassNameChange={classes.setNewClassName}
-            onCreateNewClass={handleCreateNewClass}
-          />
-        </div>
       </header>
 
       <main className="main-content">
@@ -109,6 +106,33 @@ function App() {
           error={students.error}
           onDismiss={() => students.setError(null)}
         />
+
+        <div className="setup-workflow">
+          <div className="workflow-step">
+            <h2>Step 1: Select or Create Class</h2>
+            <ClassSelector
+              currentClass={classes.currentClass}
+              availableClasses={classes.availableClasses}
+              newClassName={classes.newClassName}
+              onClassChange={handleClassChange}
+              onNewClassNameChange={classes.setNewClassName}
+              onCreateNewClass={handleCreateNewClass}
+            />
+          </div>
+
+          <div className="workflow-step">
+            <h2>Step 2: Subject & Excel Upload</h2>
+            <ExcelUploader
+              currentClass={classes.currentClass}
+              currentSubject={classes.currentSubject}
+              availableSubjects={classes.availableSubjects}
+              onSubjectChange={classes.setCurrentSubject}
+              onExcelUpload={handleFileUpload}
+              isUploading={isUploading}
+              onAddSubject={classes.addSubject}
+            />
+          </div>
+        </div>
 
         <Stats {...statsData} currentClass={classes.currentClass} />
 
@@ -120,7 +144,6 @@ function App() {
           onSelectStudent={handleScanRequest}
           onGeneratePDF={handleGeneratePDF}
           onDeletePDF={handleDeletePDF}
-          onExcelUpload={handleFileUpload}
           isExcelUploaded={isExcelUploaded}
           loading={students.loading}
           currentPage={currentPage}

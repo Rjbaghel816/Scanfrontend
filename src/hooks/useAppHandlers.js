@@ -33,6 +33,7 @@ export const useAppHandlers = ({
     const handleClassChange = useCallback(
         async (newClass) => {
             classes.changeClass(newClass);
+            classes.setCurrentSubject(''); // Reset subject when class changes
             setCurrentPage(1);
             setIsExcelUploaded(false);
 
@@ -47,9 +48,10 @@ export const useAppHandlers = ({
         [classes, showPhotoCapture, setCurrentPage, setIsExcelUploaded, setShowPhotoCapture, setSelectedStudent, setCapturedPhotos]
     );
 
-    const handleCreateNewClass = useCallback(() => {
-        const result = classes.createNewClass();
+    const handleCreateNewClass = useCallback(async () => {
+        const result = await classes.createNewClass();
         if (result.success) {
+            // Subject is reset inside createNewClass itself, but let's ensure page resets too
             setCurrentPage(1);
             setIsExcelUploaded(false);
             students.setError(null);
@@ -58,65 +60,6 @@ export const useAppHandlers = ({
             students.setError(result.error);
         }
     }, [classes, students, setCurrentPage, setIsExcelUploaded]);
-
-    // Excel upload handler
-    const uploadExcelToBackend = useCallback(
-        async (file) => {
-            if (!classes.currentClass || classes.currentClass === "default") {
-                students.setError("Please select or create a class first");
-                return;
-            }
-
-            students.setError(null);
-            try {
-                const formData = new FormData();
-                formData.append("file", file);
-                formData.append("className", classes.currentClass);
-
-                console.log(
-                    "📤 Sending Excel upload request for class:",
-                    classes.currentClass
-                );
-
-                const response = await apiService.uploadExcelWithClass(
-                    formData,
-                    classes.currentClass
-                );
-
-                if (response.success) {
-                    setIsExcelUploaded(true);
-                    await students.fetchStudents(1, itemsPerPage);
-                    await classes.fetchAvailableClasses();
-                    students.setError(null);
-                }
-            } catch (error) {
-                console.error("Excel upload failed:", error);
-                students.setError(error.message || "Failed to upload Excel file");
-            }
-        },
-        [classes, students, itemsPerPage, setIsExcelUploaded]
-    );
-
-    const handleFileUpload = useCallback(
-        (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            if (!file.name.match(/\.(xlsx|xls)$/)) {
-                students.setError("Please upload a valid Excel file (.xlsx, .xls)");
-                return;
-            }
-
-            if (!classes.currentClass || classes.currentClass === "default") {
-                students.setError("Please select or create a class first");
-                return;
-            }
-
-            uploadExcelToBackend(file);
-            event.target.value = "";
-        },
-        [classes, students, uploadExcelToBackend]
-    );
 
     // Photo upload handler
     const handlePhotosCaptured = useCallback(
@@ -176,7 +119,8 @@ export const useAppHandlers = ({
                 const response = await apiService.uploadScans(
                     selectedStudent._id,
                     formData,
-                    classes.currentClass
+                    classes.currentClass,
+                    classes.currentSubject
                 );
 
                 if (response.success) {
@@ -241,7 +185,8 @@ export const useAppHandlers = ({
                     studentId,
                     newStatus,
                     "",
-                    classes.currentClass
+                    classes.currentClass,
+                    classes.currentSubject
                 );
                 if (response.success) {
                     students.updateStudent(studentId, { status: newStatus });
@@ -270,7 +215,8 @@ export const useAppHandlers = ({
             try {
                 const result = await apiService.generatePDF(
                     student._id,
-                    classes.currentClass
+                    classes.currentClass,
+                    classes.currentSubject
                 );
                 if (result.success) {
                     console.log(`✅ PDF downloaded: ${result.filename}`);
@@ -303,7 +249,8 @@ export const useAppHandlers = ({
             try {
                 const response = await apiService.deletePDF(
                     student._id,
-                    classes.currentClass
+                    classes.currentClass,
+                    classes.currentSubject
                 );
                 if (response.success) {
                     // Immediately update local state to reflect changes
@@ -345,7 +292,8 @@ export const useAppHandlers = ({
                 const response = await apiService.updateStudentRemark(
                     studentId,
                     remark,
-                    classes.currentClass
+                    classes.currentClass,
+                    classes.currentSubject
                 );
                 if (response.success) {
                     students.updateStudent(studentId, { remark });
@@ -365,7 +313,8 @@ export const useAppHandlers = ({
                 selectedStudent._id,
                 "Absent",
                 "",
-                classes.currentClass
+                classes.currentClass,
+                classes.currentSubject
             );
             if (response.success) {
                 await students.fetchStudents(currentPage, itemsPerPage);
@@ -392,7 +341,8 @@ export const useAppHandlers = ({
                 selectedStudent._id,
                 "Missing",
                 "",
-                classes.currentClass
+                classes.currentClass,
+                classes.currentSubject
             );
             if (response.success) {
                 await students.fetchStudents(currentPage, itemsPerPage);
@@ -437,7 +387,6 @@ export const useAppHandlers = ({
     return {
         handleClassChange,
         handleCreateNewClass,
-        handleFileUpload,
         handlePhotosCaptured,
         handleNextStudent,
         handleStatusChange,

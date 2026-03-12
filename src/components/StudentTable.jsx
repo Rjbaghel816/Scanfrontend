@@ -16,7 +16,6 @@ const StudentTable = memo(({
   onSelectStudent,
   onGeneratePDF,
   onDeletePDF,
-  onExcelUpload,
   isExcelUploaded,
   loading,
   currentPage,
@@ -27,7 +26,6 @@ const StudentTable = memo(({
   onItemsPerPageChange,
   currentClass,
 }) => {
-  const fileInputRef = useRef(null);
 
   // Memoized quick stats
   const quickStats = useMemo(() => {
@@ -47,10 +45,6 @@ const StudentTable = memo(({
     return currentClass.replace(/_/g, ' ');
   }, [currentClass]);
 
-  const handleExcelUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
   if (loading) {
     return (
       <div className="student-table-container">
@@ -69,27 +63,6 @@ const StudentTable = memo(({
         <div className="class-info-badge">
           🎯 Current Class: <strong>{classDisplayName}</strong>
         </div>
-
-        <button
-          className="excel-upload-btn"
-          onClick={handleExcelUploadClick}
-          title="Upload Excel file with Roll Numbers and Subject Details"
-          disabled={!currentClass || currentClass === 'default'}
-        >
-          📊 Upload Excel File
-        </button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={onExcelUpload}
-          accept=".xlsx, .xls, .csv"
-          style={{ display: "none" }}
-        />
-        <span className="upload-hint">
-          {!currentClass || currentClass === 'default'
-            ? "Please select or create a class first"
-            : "Upload Excel with columns: Roll Number, Subject Code, Subject Name"}
-        </span>
 
         {quickStats && (
           <div className="quick-stats">
@@ -137,13 +110,6 @@ const StudentTable = memo(({
                 ? "Choose a class from the dropdown above to get started"
                 : "Please upload an Excel file to get started"}
             </p>
-            <button
-              className="excel-upload-btn empty-btn"
-              onClick={handleExcelUploadClick}
-              disabled={!currentClass || currentClass === 'default'}
-            >
-              📊 Upload Excel File
-            </button>
           </div>
         ) : (
           <table className="students-table">
@@ -213,4 +179,4 @@ const StudentTable = memo(({
 
 StudentTable.displayName = 'StudentTable';
 
-export default React.memo(StudentTable);
+export default StudentTable;

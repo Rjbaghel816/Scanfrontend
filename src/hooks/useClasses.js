@@ -9,6 +9,16 @@ export const useClasses = () => {
   const [currentClass, setCurrentClass] = useState('default');
   const [availableClasses, setAvailableClasses] = useState([]);
   const [newClassName, setNewClassName] = useState('');
+  const [currentSubject, setCurrentSubject] = useState('');
+  const [availableSubjects, setAvailableSubjects] = useState(() => {
+    const saved = localStorage.getItem('availableSubjects');
+    return saved ? JSON.parse(saved) : ['HIS101', 'ECO101', 'POL101', 'GEO101'];
+  });
+
+  // Save subjects to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('availableSubjects', JSON.stringify(availableSubjects));
+  }, [availableSubjects]);
 
   // Fetch available classes
   const fetchAvailableClasses = useCallback(async () => {
@@ -27,22 +37,57 @@ export const useClasses = () => {
     fetchAvailableClasses();
   }, [fetchAvailableClasses]);
 
-  // Create new class
-  const createNewClass = useCallback(() => {
+  // ✅ FIXED: Create new class — now calls the backend API and auto-selects the class
+  const createNewClass = useCallback(async () => {
     if (!newClassName.trim()) {
       return { success: false, error: "Please enter a class name" };
     }
 
+    const normalizedClassName = newClassName.trim().replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+
     try {
-      const normalizedClassName = newClassName.trim().replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      // ✅ Call the backend to persist the class collection
+      const response = await apiService.createClass(normalizedClassName);
+
+      if (!response.success) {
+        return { success: false, error: response.message || "Failed to create class" };
+      }
+
+      const newClassEntry = response.class || {
+        collectionName: `class_${normalizedClassName}`,
+        className: normalizedClassName,
+        displayName: normalizedClassName.replace(/_/g, ' ')
+      };
+
+      // ✅ Add to dropdown list immediately (optimistic update)
+      setAvailableClasses(prev => {
+        const alreadyExists = prev.some(c => c.className === normalizedClassName);
+        if (alreadyExists) return prev;
+        return [...prev, newClassEntry];
+      });
+
+      // ✅ Auto-select the newly created class
       setCurrentClass(normalizedClassName);
+      setCurrentSubject(''); // Reset subject for the new class
       setNewClassName('');
-      
+
+      console.log(`✅ Class created & selected: ${normalizedClassName}`);
       return { success: true, className: normalizedClassName };
     } catch (error) {
-      return { success: false, error: "Failed to create new class" };
+      console.error("Failed to create class:", error);
+      return { success: false, error: error.message || "Failed to create class" };
     }
-  }, [newClassName]);
+  }, [newClassName, setCurrentClass, setCurrentSubject, setNewClassName]);
+
+  const addSubject = useCallback((subjectCode) => {
+    if (!subjectCode || !subjectCode.trim()) return;
+    const normalized = subjectCode.trim().toUpperCase();
+    setAvailableSubjects(prev => {
+      if (prev.includes(normalized)) return prev;
+      return [...prev, normalized].sort();
+    });
+    setCurrentSubject(normalized);
+  }, [setAvailableSubjects, setCurrentSubject]);
 
   // Handle class change
   const changeClass = useCallback((newClass) => {
@@ -64,6 +109,9 @@ export const useClasses = () => {
     changeClass,
     getClassDisplayName,
     fetchAvailableClasses,
+    currentSubject,
+    setCurrentSubject,
+    availableSubjects,
+    addSubject,
   };
 };
-

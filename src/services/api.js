@@ -3,7 +3,7 @@
 // - Can be overridden at build time via REACT_APP_API_BASE
 const API_BASE =
   (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_BASE) ||
-  'http://localhost:5000/api';
+  'http://localhost:5002/api';
 
 class ApiService {
   async request(endpoint, options = {}) {

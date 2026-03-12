@@ -98,7 +98,7 @@ const StudentTableRow = memo(
               </span>
             ) : isScanned ? (
               <span className="pdf-processing" title="PDF Being Generated">
-                ⏳ Processing
+                ⏳ Processsing
               </span>
             ) : (
               <span className="pdf-pending" title="Not Scanned Yet">
@@ -198,15 +198,21 @@ const StudentTableRow = memo(
     );
   },
   (prevProps, nextProps) => {
-    // Custom comparison function for better memoization
+    // Custom comparison function for accurate memoization
     return (
       prevProps.student._id === nextProps.student._id &&
       prevProps.student.status === nextProps.student.status &&
       prevProps.student.remark === nextProps.student.remark &&
       prevProps.student.isScanned === nextProps.student.isScanned &&
       prevProps.student.pdfPath === nextProps.student.pdfPath &&
+      prevProps.student.scannedPages?.length ===
+        nextProps.student.scannedPages?.length &&
       prevProps.selectedStudent?._id === nextProps.selectedStudent?._id &&
-      prevProps.onDeletePDF === nextProps.onDeletePDF
+      prevProps.onStatusChange === nextProps.onStatusChange &&
+      prevProps.onRemarkChange === nextProps.onRemarkChange &&
+      prevProps.onDeletePDF === nextProps.onDeletePDF &&
+      prevProps.onGeneratePDF === nextProps.onGeneratePDF &&
+      prevProps.onSelectStudent === nextProps.onSelectStudent
     );
   },
 );
