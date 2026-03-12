@@ -40,6 +40,9 @@ export const useUploadExcel = ({ classes, students, setIsExcelUploaded, itemsPer
                     setIsExcelUploaded(true);
                     await students.fetchStudents(1, itemsPerPage);
                     await classes.fetchAvailableClasses();
+                    if (classes.fetchSubjects) {
+                        await classes.fetchSubjects(classes.currentClass);
+                    }
                     students.setError(null);
                 }
             } catch (error) {

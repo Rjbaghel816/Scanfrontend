@@ -65,6 +65,12 @@ class ApiService {
     });
   }
 
+  // ✅ NEW: Get unique subjects for a specific class
+  async getSubjects(className) {
+    const query = new URLSearchParams({ className }).toString();
+    return this.request(`/students/subjects?${query}`);
+  }
+
   // ✅ UPDATED: Get students with class & subject parameter
   async getStudents(params = {}) {
     const query = new URLSearchParams(params).toString();

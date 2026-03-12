@@ -10,15 +10,8 @@ export const useClasses = () => {
   const [availableClasses, setAvailableClasses] = useState([]);
   const [newClassName, setNewClassName] = useState('');
   const [currentSubject, setCurrentSubject] = useState('');
-  const [availableSubjects, setAvailableSubjects] = useState(() => {
-    const saved = localStorage.getItem('availableSubjects');
-    return saved ? JSON.parse(saved) : ['HIS101', 'ECO101', 'POL101', 'GEO101'];
-  });
-
-  // Save subjects to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('availableSubjects', JSON.stringify(availableSubjects));
-  }, [availableSubjects]);
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
 
   // Fetch available classes
   const fetchAvailableClasses = useCallback(async () => {
@@ -32,10 +25,42 @@ export const useClasses = () => {
     }
   }, []);
 
+  // ✅ NEW: Fetch subjects for current class
+  const fetchSubjects = useCallback(async (className) => {
+    if (!className || className === 'default') {
+      setAvailableSubjects([]);
+      return;
+    }
+
+    setIsLoadingSubjects(true);
+    try {
+      const response = await apiService.getSubjects(className);
+      if (response.success) {
+        setAvailableSubjects(response.subjects || []);
+        
+        // If current subject is not in the new list, reset it
+        if (currentSubject && !response.subjects.includes(currentSubject)) {
+          setCurrentSubject('');
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch subjects:", error);
+      // Fallback to empty if error
+      setAvailableSubjects([]);
+    } finally {
+      setIsLoadingSubjects(false);
+    }
+  }, [currentSubject]);
+
   // Load classes on mount
   useEffect(() => {
     fetchAvailableClasses();
   }, [fetchAvailableClasses]);
+
+  // ✅ NEW: Fetch subjects whenever class changes
+  useEffect(() => {
+    fetchSubjects(currentClass);
+  }, [currentClass, fetchSubjects]);
 
   // ✅ FIXED: Create new class — now calls the backend API and auto-selects the class
   const createNewClass = useCallback(async () => {
@@ -69,6 +94,7 @@ export const useClasses = () => {
       // ✅ Auto-select the newly created class
       setCurrentClass(normalizedClassName);
       setCurrentSubject(''); // Reset subject for the new class
+      setAvailableSubjects([]); // Clear subjects for the new class
       setNewClassName('');
 
       console.log(`✅ Class created & selected: ${normalizedClassName}`);
@@ -92,6 +118,7 @@ export const useClasses = () => {
   // Handle class change
   const changeClass = useCallback((newClass) => {
     setCurrentClass(newClass);
+    // Subject will be reset by useEffect if needed
   }, []);
 
   // Get display name for current class
@@ -113,5 +140,7 @@ export const useClasses = () => {
     setCurrentSubject,
     availableSubjects,
     addSubject,
+    isLoadingSubjects,
+    fetchSubjects
   };
 };
