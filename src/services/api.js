@@ -63,10 +63,25 @@ class ApiService {
     return this.request('/universities');
   }
 
-  async createUniversity(name, universityCode, adminEmail) {
+  async createUniversity(name, universityCode, password) {
     return this.request('/universities/create', {
       method: 'POST',
-      body: { name, universityCode, adminEmail }
+      body: { name, universityCode, password }
+    });
+  }
+
+  // ✅ NEW: Password Protection for Universities
+  async verifyUniversityPassword(universityId, password) {
+    return this.request('/universities/verify-password', {
+      method: 'POST',
+      body: { universityId, password }
+    });
+  }
+
+  async updateUniversityPassword(universityId, newPassword) {
+    return this.request(`/universities/${universityId}/update-password`, {
+      method: 'PUT',
+      body: { newPassword }
     });
   }
 

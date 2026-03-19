@@ -17,7 +17,12 @@ const UniversitySelection = () => {
   // Form State
   const [name, setName] = useState('');
   const [universityCode, setUniversityCode] = useState('');
-  const [adminEmail, setAdminEmail] = useState('');
+  const [password, setPassword] = useState('');
+  
+  // Access State
+  const [selectedUni, setSelectedUni] = useState(null);
+  const [uniPassword, setUniPassword] = useState('');
+  const [newUniPassword, setNewUniPassword] = useState('');
 
   useEffect(() => {
     fetchUniversities();
@@ -36,15 +41,46 @@ const UniversitySelection = () => {
     }
   };
 
-  const handleSelect = (code) => {
-    selectTenant(code);
+  const handleSelect = (uni) => {
+    setSelectedUni(uni);
+    setUniPassword('');
+    setError('');
+    setView('password');
+  };
+
+  const handleVerifyPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      const res = await api.verifyUniversityPassword(selectedUni.universityCode, uniPassword);
+      if (res.success) {
+        localStorage.setItem('accessGranted', 'true');
+        selectTenant(selectedUni.universityCode);
+      }
+    } catch (err) {
+      setError(err.message || 'Incorrect password');
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      const res = await api.updateUniversityPassword(selectedUni._id || selectedUni.universityCode, newUniPassword);
+      if (res.success) {
+        alert('Password updated successfully');
+        setView('list');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to update password');
+    }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      const res = await api.createUniversity(name, universityCode, adminEmail);
+      const res = await api.createUniversity(name, universityCode, password);
       if (res.success) {
         setView('list');
         fetchUniversities();
@@ -85,13 +121,63 @@ const UniversitySelection = () => {
             value={universityCode} onChange={e => setUniversityCode(e.target.value)} required 
           />
           <input 
-            type="email" 
-            placeholder="Admin Email" 
-            value={adminEmail} onChange={e => setAdminEmail(e.target.value)} required 
+            type="password" 
+            placeholder="Admin Password" 
+            value={password} onChange={e => setPassword(e.target.value)} required 
           />
           <div className="btn-group">
             <button type="submit" className="btn btn-primary">Create</button>
             <button type="button" className="btn btn-secondary" onClick={() => setView('list')}>Cancel</button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  if (view === 'password') {
+    return (
+      <div className="university-selection-container">
+        <h2>Enter Access Password</h2>
+        <p style={{marginBottom: '10px'}}>{selectedUni?.name}</p>
+        {error && <p className="error-message">{error}</p>}
+        <form onSubmit={handleVerifyPassword} className="university-form">
+          <input 
+            type="password" 
+            placeholder="University Password" 
+            value={uniPassword} onChange={e => setUniPassword(e.target.value)} required 
+          />
+          <div className="btn-group">
+            <button type="submit" className="btn btn-primary">Access Scanner</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setView('list')}>&larr; Back</button>
+          </div>
+          {isMasterAdmin && (
+             <button type="button" className="btn btn-secondary outline" style={{marginTop:'15px'}} onClick={() => {
+               setNewUniPassword(''); 
+               setView('update-password');
+             }}>
+               🔑 Change Password
+             </button>
+          )}
+        </form>
+      </div>
+    );
+  }
+
+  if (view === 'update-password') {
+    return (
+      <div className="university-selection-container">
+        <h2>Update Access Password</h2>
+        <p style={{marginBottom: '10px'}}>{selectedUni?.name}</p>
+        {error && <p className="error-message">{error}</p>}
+        <form onSubmit={handleChangePassword} className="university-form">
+          <input 
+            type="password" 
+            placeholder="Enter New Password" 
+            value={newUniPassword} onChange={e => setNewUniPassword(e.target.value)} required 
+          />
+          <div className="btn-group">
+            <button type="submit" className="btn btn-danger">Update Password</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setView('password')}>Cancel</button>
           </div>
         </form>
       </div>
@@ -107,7 +193,7 @@ const UniversitySelection = () => {
           <p>No universities found.</p>
         ) : (
           universities.map(uni => (
-             <div key={uni.universityCode} className="university-card" onClick={() => handleSelect(uni.universityCode)}>
+             <div key={uni.universityCode} className="university-card" onClick={() => handleSelect(uni)}>
                <h3>{uni.name}</h3>
                <small>Code: {uni.universityCode}</small>
              </div>
