@@ -120,7 +120,13 @@ function App() {
               <strong>{classes.getClassDisplayName()}</strong>
             </p>
           </div>
-          <button className="btn btn-secondary outline" onClick={clearTenant}>&larr; Back to Universities</button>
+          <button 
+            className="btn-modern btn-ghost" 
+            style={{ border: '2px solid #e2e8f0', padding: '10px 20px', color: '#2c3e50' }} 
+            onClick={clearTenant}
+          >
+            &larr; Back to Universities
+          </button>
         </div>
       </header>
 

@@ -8,7 +8,6 @@ const UniversitySelection = () => {
   const { selectTenant } = useTenant();
   const [universities, setUniversities] = useState([]);
   const [loading, setLoading] = useState(true);
-  // View states: 'list', 'create', 'login', 'forgot'
   const [view, setView] = useState('list');
   const [error, setError] = useState('');
   
@@ -92,7 +91,12 @@ const UniversitySelection = () => {
     }
   };
 
-  if (loading) return <div className="spinner">Loading Universities...</div>;
+  const handleLogoutAdmin = () => {
+    localStorage.removeItem('role');
+    window.location.reload();
+  };
+
+  if (loading) return <div className="spinner" style={{ margin: '50px auto' }}>Loading Universities...</div>;
 
   if (view === 'login') {
     return <AdminLogin 
@@ -106,120 +110,165 @@ const UniversitySelection = () => {
     return <ForgotPassword onGoBack={() => setView('login')} />;
   }
 
-  if (view === 'create') {
-    return (
-      <div className="university-selection-container">
-        <h2>Register New University</h2>
-        {error && <p className="error-message">{error}</p>}
-        <form onSubmit={handleCreate} className="university-form">
-          <input 
-            type="text" 
-            placeholder="University Name (e.g. Harvard)" 
-            value={name} onChange={e => setName(e.target.value)} required 
-          />
-          <input 
-            type="text" 
-            placeholder="Unique Code (e.g. harvard)" 
-            value={universityCode} onChange={e => setUniversityCode(e.target.value)} required 
-          />
-          <input 
-            type="password" 
-            placeholder="Admin Password" 
-            value={password} onChange={e => setPassword(e.target.value)} required 
-          />
-          <div className="btn-group">
-            <button type="submit" className="btn btn-primary">Create</button>
-            <button type="button" className="btn btn-secondary" onClick={() => setView('list')}>Cancel</button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  if (view === 'password') {
-    return (
-      <div className="university-selection-container">
-        <h2>Enter Access Password</h2>
-        <p style={{marginBottom: '10px'}}>{selectedUni?.name}</p>
-        {error && <p className="error-message">{error}</p>}
-        <form onSubmit={handleVerifyPassword} className="university-form">
-          <input 
-            type="password" 
-            placeholder="University Password" 
-            value={uniPassword} onChange={e => setUniPassword(e.target.value)} required 
-          />
-          <div className="btn-group">
-            <button type="submit" className="btn btn-primary">Access Scanner</button>
-            <button type="button" className="btn btn-secondary" onClick={() => setView('list')}>&larr; Back</button>
-          </div>
-          {isMasterAdmin && (
-             <button type="button" className="btn btn-secondary outline" style={{marginTop:'15px'}} onClick={() => {
-               setNewUniPassword(''); 
-               setView('update-password');
-             }}>
-               🔑 Change Password
-             </button>
-          )}
-        </form>
-      </div>
-    );
-  }
-
-  if (view === 'update-password') {
-    return (
-      <div className="university-selection-container">
-        <h2>Update Access Password</h2>
-        <p style={{marginBottom: '10px'}}>{selectedUni?.name}</p>
-        {error && <p className="error-message">{error}</p>}
-        <form onSubmit={handleChangePassword} className="university-form">
-          <input 
-            type="password" 
-            placeholder="Enter New Password" 
-            value={newUniPassword} onChange={e => setNewUniPassword(e.target.value)} required 
-          />
-          <div className="btn-group">
-            <button type="submit" className="btn btn-danger">Update Password</button>
-            <button type="button" className="btn btn-secondary" onClick={() => setView('password')}>Cancel</button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
   return (
-    <div className="university-selection-container">
-      <h2>Select Your University</h2>
-      {error && <p className="error-message">{error}</p>}
-      <div className="university-grid">
-        {universities.length === 0 ? (
-          <p>No universities found.</p>
-        ) : (
-          universities.map(uni => (
-             <div key={uni.universityCode} className="university-card" onClick={() => handleSelect(uni)}>
-               <h3>{uni.name}</h3>
-               <small>Code: {uni.universityCode}</small>
-             </div>
-          ))
-        )}
-      </div>
-      
-      <div className="mt-4 text-center">
-        {isMasterAdmin ? (
-          <div style={{ display: 'flex', gap: '15px', justifyItems: 'center', justifyContent: 'center' }}>
-            <button className="btn btn-secondary outline" onClick={() => setView('create')}>
-              + Register New University
-            </button>
-            <button className="btn btn-secondary outline" onClick={() => {
-              localStorage.removeItem('role');
-              window.location.reload();
-            }} style={{ borderColor: '#e74c3c', color: '#e74c3c' }}>
-              Logout Admin
-            </button>
+    <div className="portal-wrapper">
+      {/* 1. Clean Navbar */}
+      <nav className="portal-navbar">
+        <div className="nav-left">
+          <h2 className="portal-brand">🏢 Micronic Scanner</h2>
+        </div>
+        <div className="nav-right">
+          {isMasterAdmin && (
+            <>
+              {view === 'password' && (
+                <button className="nav-btn btn-outline-warning" onClick={() => { setNewUniPassword(''); setView('update-password'); }}>
+                  🔑 Change Password
+                </button>
+              )}
+              <button className="nav-btn btn-outline-danger" onClick={handleLogoutAdmin}>
+                🚪 Logout
+              </button>
+            </>
+          )}
+        </div>
+      </nav>
+
+      <div className="portal-content">
+        {/* VIEW: UNIVERSITY LIST */}
+        {view === 'list' && (
+          <div className="portal-card">
+            <h2 className="section-title">Select Your University</h2>
+            <p className="section-subtitle">Choose your campus to access the scanning dashboard.</p>
+            {error && <div className="alert-error">{error}</div>}
+            
+            <div className="uni-grid-modern">
+              {universities.length === 0 ? (
+                <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#666' }}>No universities found.</p>
+              ) : (
+                universities.map(uni => (
+                  <div key={uni.universityCode} className="uni-card-modern" onClick={() => handleSelect(uni)}>
+                    <div className="uni-card-icon">🏛️</div>
+                    <div className="uni-card-info">
+                      <h3>{uni.name}</h3>
+                      <small>CODE: {uni.universityCode.toUpperCase()}</small>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            <div className="admin-footer-controls">
+              {isMasterAdmin ? (
+                <div className="admin-panel">
+                  <h4>Admin Controls</h4>
+                  <button className="btn-modern btn-primary-gradient" onClick={() => setView('create')}>
+                    + Register New University
+                  </button>
+                </div>
+              ) : (
+                <button className="btn-text-link" onClick={() => setView('login')}>
+                  Master Admin Login
+                </button>
+              )}
+            </div>
           </div>
-        ) : (
-          <button className="btn btn-secondary outline" onClick={() => setView('login')} style={{ fontSize: '0.9em' }}>
-            Master Admin Login
-          </button>
+        )}
+
+        {/* VIEW: PASSWORD PROMPT */}
+        {view === 'password' && (
+          <div className="auth-card">
+            <div className="auth-icon">🔒</div>
+            <h2 className="auth-title">Access {selectedUni?.name}</h2>
+            <p className="auth-subtitle">Enter the university password to continue</p>
+            {error && <div className="alert-error">{error}</div>}
+            
+            <form onSubmit={handleVerifyPassword} className="auth-form">
+              <input 
+                type="password" 
+                className="modern-input"
+                placeholder="Enter Password..." 
+                value={uniPassword} 
+                onChange={e => setUniPassword(e.target.value)} 
+                required 
+              />
+              <button type="submit" className="btn-modern btn-large btn-success">
+                🚀 Access Scanner
+              </button>
+              <button type="button" className="btn-modern btn-large btn-ghost" onClick={() => setView('list')}>
+                &larr; Back to Selection
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* VIEW: CHANGE PASSWORD */}
+        {view === 'update-password' && (
+          <div className="auth-card">
+            <div className="auth-icon">🔑</div>
+            <h2 className="auth-title">Update Password</h2>
+            <p className="auth-subtitle">Set a new access password for {selectedUni?.name}</p>
+            {error && <div className="alert-error">{error}</div>}
+            
+            <form onSubmit={handleChangePassword} className="auth-form">
+              <input 
+                type="password" 
+                className="modern-input"
+                placeholder="New Password" 
+                value={newUniPassword} 
+                onChange={e => setNewUniPassword(e.target.value)} 
+                required 
+              />
+              <button type="submit" className="btn-modern btn-large btn-danger">
+                Update Password
+              </button>
+              <button type="button" className="btn-modern btn-large btn-ghost" onClick={() => setView('password')}>
+                Wait, Go Back
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* VIEW: CREATE UNIVERSITY */}
+        {view === 'create' && (
+          <div className="auth-card">
+            <div className="auth-icon">✨</div>
+            <h2 className="auth-title">Register University</h2>
+            <p className="auth-subtitle">Provision a new multi-tenant database</p>
+            {error && <div className="alert-error">{error}</div>}
+            
+            <form onSubmit={handleCreate} className="auth-form">
+              <input 
+                type="text" 
+                className="modern-input"
+                placeholder="University Name (e.g. Harvard)" 
+                value={name} 
+                onChange={e => setName(e.target.value)} 
+                required 
+              />
+              <input 
+                type="text" 
+                className="modern-input"
+                placeholder="Unique Code (e.g. harvard)" 
+                value={universityCode} 
+                onChange={e => setUniversityCode(e.target.value)} 
+                required 
+              />
+              <input 
+                type="password" 
+                className="modern-input"
+                placeholder="Access Password" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                required 
+              />
+              <button type="submit" className="btn-modern btn-large btn-primary-gradient">
+                Create & Initialize
+              </button>
+              <button type="button" className="btn-modern btn-large btn-ghost" onClick={() => setView('list')}>
+                Cancel
+              </button>
+            </form>
+          </div>
         )}
       </div>
     </div>
