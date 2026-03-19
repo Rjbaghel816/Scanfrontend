@@ -12,7 +12,7 @@ const UniversitySelection = () => {
   const [view, setView] = useState('list');
   const [error, setError] = useState('');
   
-  const isMasterAdmin = localStorage.getItem('masterAdmin') === 'true';
+  const isMasterAdmin = localStorage.getItem('role') === 'admin';
 
   // Form State
   const [name, setName] = useState('');
@@ -54,6 +54,7 @@ const UniversitySelection = () => {
     try {
       const res = await api.verifyUniversityPassword(selectedUni.universityCode, uniPassword);
       if (res.success) {
+        localStorage.setItem('role', 'user');
         localStorage.setItem('accessGranted', 'true');
         selectTenant(selectedUni.universityCode);
       }
@@ -66,7 +67,8 @@ const UniversitySelection = () => {
     e.preventDefault();
     setError('');
     try {
-      const res = await api.updateUniversityPassword(selectedUni._id || selectedUni.universityCode, newUniPassword);
+      const role = localStorage.getItem('role');
+      const res = await api.updateUniversityPassword(selectedUni._id || selectedUni.universityCode, newUniPassword, role);
       if (res.success) {
         alert('Password updated successfully');
         setView('list');
@@ -208,7 +210,7 @@ const UniversitySelection = () => {
               + Register New University
             </button>
             <button className="btn btn-secondary outline" onClick={() => {
-              localStorage.removeItem('masterAdmin');
+              localStorage.removeItem('role');
               window.location.reload();
             }} style={{ borderColor: '#e74c3c', color: '#e74c3c' }}>
               Logout Admin

@@ -15,7 +15,7 @@ const AdminLogin = ({ onLoginSuccess, onGoBack, onNavigateForgot }) => {
     try {
       const res = await api.adminLogin(email, password);
       if (res.success) {
-        localStorage.setItem('masterAdmin', 'true');
+        localStorage.setItem('role', 'admin');
         onLoginSuccess();
       } else {
         setError(res.message);

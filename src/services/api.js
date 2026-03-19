@@ -78,10 +78,10 @@ class ApiService {
     });
   }
 
-  async updateUniversityPassword(universityId, newPassword) {
+  async updateUniversityPassword(universityId, newPassword, role) {
     return this.request(`/universities/${universityId}/update-password`, {
       method: 'PUT',
-      body: { newPassword }
+      body: { newPassword, role }
     });
   }
 
