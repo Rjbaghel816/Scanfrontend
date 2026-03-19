@@ -10,11 +10,17 @@ class ApiService {
     const url = `${API_BASE}${endpoint}`;
 
     const isFormData = options.body instanceof FormData;
+    // ✅ Multi-Tenant: Inject Tenant ID and Auth Token
+    const tenantId = localStorage.getItem('tenantId');
+    const token = localStorage.getItem('token');
+
+    const headers = { ...options.headers };
+    if (!isFormData) headers['Content-Type'] = 'application/json';
+    if (tenantId) headers['x-tenant-id'] = tenantId;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const config = {
-      headers: {
-        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-        ...options.headers,
-      },
+      headers,
       ...options,
     };
 
@@ -50,6 +56,47 @@ class ApiService {
       console.error('API Error:', error);
       throw error;
     }
+  }
+
+  // ✅ NEW: Master DB / Authentication APIs
+  async getUniversities(params = {}) {
+    return this.request('/universities');
+  }
+
+  async createUniversity(name, universityCode, adminEmail) {
+    return this.request('/universities/create', {
+      method: 'POST',
+      body: { name, universityCode, adminEmail }
+    });
+  }
+
+  async login(email, password) {
+    return this.request('/auth/login', {
+      method: 'POST',
+      body: { email, password }
+    });
+  }
+
+  // ✅ NEW: Super Admin Auth APIs
+  async adminLogin(email, password) {
+    return this.request('/admin/login', {
+      method: 'POST',
+      body: { email, password }
+    });
+  }
+
+  async forgotPassword(email) {
+    return this.request('/admin/forgot-password', {
+      method: 'POST',
+      body: { email }
+    });
+  }
+
+  async resetAdminPassword(email, newPassword) {
+    return this.request('/admin/reset-password', {
+      method: 'POST',
+      body: { email, newPassword }
+    });
   }
 
   // ✅ NEW: Get all available classes

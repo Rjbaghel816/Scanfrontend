@@ -15,7 +15,8 @@ export const useStudents = (currentClass, currentSubject, currentPage, itemsPerP
 
   // Memoize fetch function
   const fetchStudents = useCallback(async (page = currentPage, limit = itemsPerPage) => {
-    if (!currentClass || currentClass === 'default' || !currentSubject) return;
+    const tenantId = localStorage.getItem('tenantId');
+    if (!tenantId || !currentClass || currentClass === 'default' || !currentSubject) return;
 
     // Cancel any in-flight request (prevents race conditions)
     if (abortControllerRef.current) {

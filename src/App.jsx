@@ -8,6 +8,8 @@ import { useStudents } from "./hooks/useStudents";
 import { useClasses } from "./hooks/useClasses";
 import { useAppHandlers } from "./hooks/useAppHandlers";
 import { useUploadExcel } from "./hooks/useUploadExcel";
+import { useTenant } from "./context/TenantContext";
+import UniversitySelection from "./components/UniversitySelection";
 import "./App.css";
 
 // Code splitting: Lazy load PhotoCapture (large component)
@@ -18,6 +20,8 @@ const PhotoCapture = React.lazy(() => import("./components/PhotoCapture"));
  * Main application component with optimized state management and code splitting
  */
 function App() {
+  const { tenantId, clearTenant } = useTenant();
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -90,15 +94,33 @@ function App() {
     [students.totalStudents, students.stats]
   );
 
+  if (!tenantId) {
+    return (
+      <div className="app">
+        <header className="app-header">
+          <div className="header-content">
+            <h1>📱 Micronic SaaS Platform</h1>
+          </div>
+        </header>
+        <main className="main-content">
+          <UniversitySelection />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <header className="app-header">
-        <div className="header-content">
-          <h1>📱 Micronic Exam Copy Scanner</h1>
-          <p>
-            Multi-Class Scanning System | Current Class:{" "}
-            <strong>{classes.getClassDisplayName()}</strong>
-          </p>
+        <div className="header-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1>📱 {tenantId.toUpperCase()} Exam Scanner</h1>
+            <p>
+              Multi-Class Scanning System | Current Class:{" "}
+              <strong>{classes.getClassDisplayName()}</strong>
+            </p>
+          </div>
+          <button className="btn btn-secondary outline" onClick={clearTenant}>&larr; Back to Universities</button>
         </div>
       </header>
 

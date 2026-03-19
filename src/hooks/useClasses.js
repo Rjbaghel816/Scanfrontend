@@ -15,19 +15,24 @@ export const useClasses = () => {
 
   // Fetch available classes
   const fetchAvailableClasses = useCallback(async () => {
+    const tenantId = localStorage.getItem('tenantId');
+    if (!tenantId) return;
+
     try {
       const response = await apiService.getClasses();
-      if (response.success) {
+      if (response && response.success) {
         setAvailableClasses(response.classes);
       }
     } catch (error) {
-      console.error("Failed to fetch classes:", error);
+      console.error("Failed to fetch classes gracefully:", error);
+      setAvailableClasses([]); // Fallback to empty array
     }
   }, []);
 
   // ✅ NEW: Fetch subjects for current class
   const fetchSubjects = useCallback(async (className) => {
-    if (!className || className === 'default') {
+    const tenantId = localStorage.getItem('tenantId');
+    if (!tenantId || !className || className === 'default') {
       setAvailableSubjects([]);
       return;
     }
@@ -64,6 +69,8 @@ export const useClasses = () => {
 
   // ✅ NEW: Search and select a class directly
   const searchClass = useCallback(async (className) => {
+    const tenantId = localStorage.getItem('tenantId');
+    if (!tenantId) return { success: false, error: "Multi-tenant context missing" };
     if (!className || !className.trim()) return { success: false, error: "Enter class code" };
     
     const searchCode = className.trim().toLowerCase();
