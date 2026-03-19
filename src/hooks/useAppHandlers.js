@@ -61,6 +61,18 @@ export const useAppHandlers = ({
         }
     }, [classes, students, setCurrentPage, setIsExcelUploaded]);
 
+    const handleFindClass = useCallback(async (className) => {
+        const result = await classes.searchClass(className);
+        if (result.success) {
+            setCurrentPage(1);
+            setIsExcelUploaded(false);
+            students.setError(null);
+            console.log(`🔍 Found and loaded class: ${className}`);
+        } else {
+            students.setError(result.error);
+        }
+    }, [classes, students, setCurrentPage, setIsExcelUploaded]);
+
     // Photo upload handler
     const handlePhotosCaptured = useCallback(
         async (photosArray) => {
@@ -387,6 +399,7 @@ export const useAppHandlers = ({
     return {
         handleClassChange,
         handleCreateNewClass,
+        handleFindClass,
         handlePhotosCaptured,
         handleNextStudent,
         handleStatusChange,

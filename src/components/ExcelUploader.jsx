@@ -13,17 +13,21 @@ const ExcelUploader = React.memo(({
     const [newSubject, setNewSubject] = React.useState('');
     const [showAddSubject, setShowAddSubject] = React.useState(false);
 
-    const handleAddSubject = () => {
+    const handleAddSubject = async () => {
         if (newSubject.trim()) {
-            onAddSubject(newSubject.trim());
-            setNewSubject('');
-            setShowAddSubject(false);
+            const result = await onAddSubject(newSubject.trim());
+            if (result && !result.success) {
+                alert(result.error || "Failed to add subject");
+            } else {
+                setNewSubject('');
+                setShowAddSubject(false);
+            }
         }
     };
 
     const classDisplayName = useMemo(() => {
         if (!currentClass || currentClass === 'default') return 'Not Selected';
-        return currentClass.replace(/_/g, ' ');
+        return currentClass.toUpperCase();
     }, [currentClass]);
 
     const isUploadDisabled = !currentClass || currentClass === 'default' || !currentSubject || isUploading;

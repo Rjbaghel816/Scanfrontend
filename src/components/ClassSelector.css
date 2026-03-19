@@ -105,6 +105,38 @@
   color: #2c3e50;
 }
 
+.search-group {
+  border-bottom: 2px dashed #f1f4f6;
+  padding-bottom: 20px;
+}
+
+.search-input-wrapper {
+  display: flex;
+  gap: 10px;
+}
+
+.find-class-btn {
+  padding: 10px 20px;
+  background: #3498db;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.find-class-btn:hover:not(:disabled) {
+  background: #2980b9;
+  transform: translateY(-1px);
+}
+
+.find-class-btn:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .create-class-input {

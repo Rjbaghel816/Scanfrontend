@@ -43,6 +43,7 @@ function App() {
   const {
     handleClassChange,
     handleCreateNewClass,
+    handleFindClass,
     handlePhotosCaptured,
     handleNextStudent,
     handleStatusChange,
@@ -117,6 +118,7 @@ function App() {
               onClassChange={handleClassChange}
               onNewClassNameChange={classes.setNewClassName}
               onCreateNewClass={handleCreateNewClass}
+              onFindClass={handleFindClass}
             />
           </div>
 

@@ -14,12 +14,48 @@ const ClassSelector = React.memo(
     onClassChange,
     onNewClassNameChange,
     onCreateNewClass,
+    onFindClass,
   }) => {
+    const [searchCode, setSearchCode] = React.useState("");
+
+    const handleSearch = () => {
+      if (searchCode.trim()) {
+        onFindClass(searchCode.trim());
+        setSearchCode("");
+      }
+    };
+
     return (
       <div className="class-selector">
+        {/* Class Search/Find */}
+        <div className="class-selector-group search-group">
+          <label className="class-label">🔍 Find Class by Code:</label>
+          <div className="search-input-wrapper">
+            <input
+              type="text"
+              value={searchCode}
+              onChange={(e) => setSearchCode(e.target.value)}
+              placeholder="Enter class code (e.g. mj5hind4)"
+              className="class-name-input"
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  handleSearch();
+                }
+              }}
+            />
+            <button
+              onClick={handleSearch}
+              disabled={!searchCode.trim()}
+              className="find-class-btn"
+            >
+              Find
+            </button>
+          </div>
+        </div>
+
         {/* Existing Classes */}
         <div className="class-selector-group">
-          <label className="class-label">📚 Select Existing Class:</label>
+          <label className="class-label">📚 Select from Recent:</label>
           <select
             value={currentClass}
             onChange={(e) => onClassChange(e.target.value)}
@@ -28,12 +64,12 @@ const ClassSelector = React.memo(
             <option value="default">-- Select a Class --</option>
             {availableClasses.map((cls) => (
               <option key={cls.collectionName} value={cls.className}>
-                {cls.displayName} ({cls.collectionName})
+                {cls.displayName}
               </option>
             ))}
           </select>
           <span className="class-count">
-            {availableClasses.length} classes available
+            {availableClasses.length} classes listed
           </span>
         </div>
 
@@ -45,7 +81,7 @@ const ClassSelector = React.memo(
               type="text"
               value={newClassName}
               onChange={(e) => onNewClassNameChange(e.target.value)}
-              placeholder="Enter class name (Subject )"
+              placeholder="Enter exact class code"
               className="class-name-input"
               onKeyPress={(e) => {
                 if (e.key === "Enter") {
@@ -59,12 +95,11 @@ const ClassSelector = React.memo(
               className="create-class-btn"
               title="Create new class collection"
             >
-              Create Class
+              Create
             </button>
           </div>
           <div className="class-hint">
-            💡 Class name will be converted to collection name (e.g.,
-            "MJ5HIND4ENGL")
+            💡 Collection will be created with the exact code entered.
           </div>
         </div>
 
@@ -73,7 +108,7 @@ const ClassSelector = React.memo(
           <div className="current-class-info">
             <span className="current-class-badge">
               🎯 Currently Viewing:{" "}
-              <strong>{currentClass.replace(/_/g, " ").toUpperCase()}</strong>
+              <strong>{currentClass.toUpperCase()}</strong>
             </span>
           </div>
         )}

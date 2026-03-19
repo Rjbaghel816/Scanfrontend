@@ -62,13 +62,46 @@ export const useClasses = () => {
     fetchSubjects(currentClass);
   }, [currentClass, fetchSubjects]);
 
-  // ✅ FIXED: Create new class — now calls the backend API and auto-selects the class
+  // ✅ NEW: Search and select a class directly
+  const searchClass = useCallback(async (className) => {
+    if (!className || !className.trim()) return { success: false, error: "Enter class code" };
+    
+    const searchCode = className.trim().toLowerCase();
+    
+    // Check if class exists in already fetched classes
+    const existingClass = availableClasses.find(c => c.className === searchCode);
+    
+    if (existingClass) {
+      setCurrentClass(searchCode);
+      return { success: true };
+    }
+
+    // If not found in memory, try to refresh class list
+    try {
+      const response = await apiService.getClasses();
+      if (response.success) {
+        setAvailableClasses(response.classes);
+        const refetchedClass = response.classes.find(c => c.className === searchCode);
+        if (refetchedClass) {
+          setCurrentClass(searchCode);
+          return { success: true };
+        }
+      }
+      return { success: false, error: "Class not found" };
+    } catch (error) {
+      console.error("Search class failed:", error);
+      return { success: false, error: "Search failed" };
+    }
+  }, [availableClasses]);
+
+  // ✅ FIXED: Create new class — NO PREFIX
   const createNewClass = useCallback(async () => {
     if (!newClassName.trim()) {
       return { success: false, error: "Please enter a class name" };
     }
 
-    const normalizedClassName = newClassName.trim().replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    // Normalize to basic alphanumeric for collection safety, but keep as user entered
+    const normalizedClassName = newClassName.trim().toLowerCase();
 
     try {
       // ✅ Call the backend to persist the class collection
@@ -79,9 +112,9 @@ export const useClasses = () => {
       }
 
       const newClassEntry = response.class || {
-        collectionName: `class_${normalizedClassName}`,
+        collectionName: normalizedClassName,
         className: normalizedClassName,
-        displayName: normalizedClassName.replace(/_/g, ' ')
+        displayName: normalizedClassName.toUpperCase()
       };
 
       // ✅ Add to dropdown list immediately (optimistic update)
@@ -105,15 +138,33 @@ export const useClasses = () => {
     }
   }, [newClassName, setCurrentClass, setCurrentSubject, setNewClassName]);
 
-  const addSubject = useCallback((subjectCode) => {
-    if (!subjectCode || !subjectCode.trim()) return;
+  const addSubject = useCallback(async (subjectCode) => {
+    if (!subjectCode || !subjectCode.trim() || currentClass === 'default') return { success: false, error: "Invalid class or subject" };
+    
     const normalized = subjectCode.trim().toUpperCase();
-    setAvailableSubjects(prev => {
-      if (prev.includes(normalized)) return prev;
-      return [...prev, normalized].sort();
-    });
-    setCurrentSubject(normalized);
-  }, [setAvailableSubjects, setCurrentSubject]);
+    
+    try {
+      const response = await apiService.createSubject(currentClass, normalized);
+      
+      if (response.success) {
+        // Optimistic update
+        setAvailableSubjects(prev => {
+          if (prev.includes(normalized)) return prev;
+          return [...prev, normalized].sort();
+        });
+        setCurrentSubject(normalized);
+        
+        // Refresh from server to be sure
+        await fetchSubjects(currentClass);
+        return { success: true };
+      } else {
+        return { success: false, error: response.message || "Failed to add subject" };
+      }
+    } catch (error) {
+      console.error("Add subject failed:", error);
+      return { success: false, error: "Failed to save subject to database" };
+    }
+  }, [currentClass, setAvailableSubjects, setCurrentSubject, fetchSubjects]);
 
   // Handle class change
   const changeClass = useCallback((newClass) => {
@@ -124,7 +175,7 @@ export const useClasses = () => {
   // Get display name for current class
   const getClassDisplayName = useCallback(() => {
     if (currentClass === 'default') return 'No Class Selected';
-    return currentClass.replace(/_/g, ' ');
+    return currentClass.toUpperCase();
   }, [currentClass]);
 
   return {
@@ -141,6 +192,7 @@ export const useClasses = () => {
     availableSubjects,
     addSubject,
     isLoadingSubjects,
-    fetchSubjects
+    fetchSubjects,
+    searchClass
   };
 };

@@ -71,6 +71,14 @@ class ApiService {
     return this.request(`/students/subjects?${query}`);
   }
 
+  // ✅ NEW: Manually register a new subject for a class
+  async createSubject(className, subjectCode) {
+    return this.request('/students/subjects', {
+      method: 'POST',
+      body: { className, subjectCode }
+    });
+  }
+
   // ✅ UPDATED: Get students with class & subject parameter
   async getStudents(params = {}) {
     const query = new URLSearchParams(params).toString();
