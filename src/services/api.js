@@ -100,10 +100,17 @@ class ApiService {
     });
   }
 
-  async forgotPassword(email) {
-    return this.request('/admin/forgot-password', {
+  async sendAdminOTP(email) {
+    return this.request('/admin/send-otp', {
       method: 'POST',
       body: { email }
+    });
+  }
+  
+  async verifyAdminOTP(email, otp) {
+    return this.request('/admin/verify-otp', {
+      method: 'POST',
+      body: { email, otp }
     });
   }
 
