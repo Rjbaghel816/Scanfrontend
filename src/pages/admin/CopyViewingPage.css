@@ -1,0 +1,257 @@
+.copy-viewing-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+
+.filter-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.filter-group select {
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.btn-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-search:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.view-toggle {
+  margin-left: auto;
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.view-toggle button {
+  padding: 8px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.view-toggle button.active {
+  background: white;
+  color: #3b82f6;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Grid View */
+.copies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 24px;
+}
+
+.copy-item {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: all 0.3s;
+  border: 1px solid #e2e8f0;
+}
+
+.copy-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.copy-preview {
+  height: 200px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+  position: relative;
+  cursor: pointer;
+}
+
+.copy-preview .overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(59, 130, 246, 0.8);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  opacity: 0;
+  transition: all 0.3s;
+}
+
+.copy-preview:hover .overlay {
+  opacity: 1;
+}
+
+.copy-details {
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.copy-details .info {
+  display: flex;
+  flex-direction: column;
+}
+
+.copy-details .info .roll {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.copy-details .info .file {
+  font-size: 12px;
+  color: #64748b;
+  width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.copy-details .actions {
+  display: flex;
+  gap: 8px;
+}
+
+.copy-details .actions button {
+  background: #f1f5f9;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-details .actions button:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* List View */
+.copies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.copies-list .copy-item {
+  display: flex;
+  align-items: center;
+  height: 70px;
+}
+
+.copies-list .copy-preview {
+  width: 70px;
+  height: 70px;
+  flex-shrink: 0;
+}
+
+.copies-list .copy-preview svg {
+  width: 24px;
+  height: 24px;
+}
+
+.copies-list .copy-details {
+  flex: 1;
+}
+
+/* Empty & Loading States */
+.empty-state, .loading-state {
+  text-align: center;
+  padding: 80px 0;
+  color: #94a3b8;
+}
+
+.empty-state h3 {
+  color: #475569;
+  margin: 16px 0 8px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Viewer */
+.viewer-container {
+  height: 80vh;
+  background: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.media-viewer {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.media-viewer.image {
+  object-fit: contain;
+}

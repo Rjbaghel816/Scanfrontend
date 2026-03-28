@@ -1,223 +1,53 @@
-import React, { useState, useMemo, Suspense } from "react";
-import StudentTable from "./components/StudentTable";
-import Stats from "./components/Stats";
-import ClassSelector from "./components/ClassSelector";
-import ErrorBanner from "./components/ErrorBanner";
-import ExcelUploader from "./components/ExcelUploader";
-import { useStudents } from "./hooks/useStudents";
-import { useClasses } from "./hooks/useClasses";
-import { useAppHandlers } from "./hooks/useAppHandlers";
-import { useUploadExcel } from "./hooks/useUploadExcel";
-import { useTenant } from "./context/TenantContext";
-import UniversitySelection from "./components/UniversitySelection";
-import "./App.css";
+import React from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useTenant } from './context/TenantContext';
+import MainLayout from './components/layout/MainLayout';
+import UniversityPage from './pages/UniversityPage';
+import LoginPage from './pages/LoginPage';
+import ScannerPage from './pages/scanner/ScannerPage';
+import PaperUploadPage from './pages/admin/PaperUploadPage';
+import PaperListPage from './pages/admin/PaperListPage'; // ✅ NEW
+import CopyViewingPage from './pages/admin/CopyViewingPage';
+import ReviewQueuePage from './pages/admin/ReviewQueuePage';
+import EvaluationConfig from './pages/admin/EvaluationConfig';
+import StatisticsPage from './pages/admin/StatisticsPage';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import './App.css';
 
-// Code splitting: Lazy load PhotoCapture (large component)
-const PhotoCapture = React.lazy(() => import("./components/PhotoCapture"));
+const ProtectedRoute = ({ children }) => {
+  const { user } = useTenant();
 
-/**
- * App Component
- * Main application component with optimized state management and code splitting
- */
-function App() {
-  const { tenantId, clearTenant } = useTenant();
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
-
-  // Photo capture state
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [showPhotoCapture, setShowPhotoCapture] = useState(false);
-  const [capturedPhotos, setCapturedPhotos] = useState([]);
-  const [isExcelUploaded, setIsExcelUploaded] = useState(false);
-
-  // Custom hooks
-  const classes = useClasses();
-  const students = useStudents(classes.currentClass, classes.currentSubject, currentPage, itemsPerPage);
-
-  const { isUploading, handleFileUpload } = useUploadExcel({
-    classes,
-    students,
-    setIsExcelUploaded,
-    itemsPerPage
-  });
-
-  // Handlers Hook
-  const {
-    handleClassChange,
-    handleCreateNewClass,
-    handleFindClass,
-    handlePhotosCaptured,
-    handleNextStudent,
-    handleStatusChange,
-    handleGeneratePDF,
-    handleDeletePDF,
-    handleRemarkChange,
-    handleMarkAsAbsent,
-    handleMarkAsMissing,
-    handlePageChange,
-    handleItemsPerPageChange,
-    handleScanRequest,
-    getNextStudent
-  } = useAppHandlers({
-    classes,
-    students,
-    state: {
-      currentPage,
-      itemsPerPage,
-      selectedStudent,
-      showPhotoCapture,
-      capturedPhotos,
-      isExcelUploaded
-    },
-    setState: {
-      setCurrentPage,
-      setItemsPerPage,
-      setSelectedStudent,
-      setShowPhotoCapture,
-      setCapturedPhotos,
-      setIsExcelUploaded
-    }
-  });
-
-  const hasNextStudent = useMemo(() => !!getNextStudent(), [getNextStudent]);
-
-  // Memoized stats for Stats component
-  const statsData = useMemo(
-    () => ({
-      total: students.totalStudents,
-      scanned: students.stats.scanned,
-      absent: students.stats.absent,
-      missing: students.stats.missing,
-    }),
-    [students.totalStudents, students.stats]
-  );
-
-  if (!tenantId) {
-    return (
-      <div className="app">
-        <header className="app-header">
-          <div className="header-content">
-            <h1>📱 Micronic SaaS Platform</h1>
-          </div>
-        </header>
-        <main className="main-content">
-          <UniversitySelection />
-        </main>
-      </div>
-    );
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
 
+  return <MainLayout>{children}</MainLayout>;
+};
+
+function App() {
+  const { user } = useTenant();
+
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="header-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1>📱 {tenantId.toUpperCase()} Exam Scanner</h1>
-            <p>
-              Multi-Class Scanning System | Current Class:{" "}
-              <strong>{classes.getClassDisplayName()}</strong>
-            </p>
-          </div>
-          <button 
-            className="btn-modern btn-ghost" 
-            style={{ border: '2px solid #e2e8f0', padding: '10px 20px', color: '#2c3e50' }} 
-            onClick={clearTenant}
-          >
-            &larr; Back to Universities
-          </button>
-        </div>
-      </header>
+    <Routes>
+      <Route path="/" element={<Navigate to={user ? (user.role === 'admin' ? "/admin/dashboard" : "/scanner") : "/login"} replace />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/university" element={<UniversityPage />} />
+      
+      {/* Protected Routes */}
+      <Route path="/scanner" element={<ProtectedRoute><ScannerPage /></ProtectedRoute>} />
+      <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/upload-paper" element={<ProtectedRoute><PaperUploadPage /></ProtectedRoute>} />
+      <Route path="/admin/view-paper" element={<ProtectedRoute><PaperListPage defaultType="question-paper" /></ProtectedRoute>} />
+      <Route path="/admin/view-answer-template" element={<ProtectedRoute><PaperListPage defaultType="answer-template" /></ProtectedRoute>} />
+      <Route path="/admin/view-copies" element={<ProtectedRoute><CopyViewingPage /></ProtectedRoute>} />
+      <Route path="/admin/review-queue" element={<ProtectedRoute><ReviewQueuePage /></ProtectedRoute>} />
+      <Route path="/admin/config" element={<ProtectedRoute><EvaluationConfig /></ProtectedRoute>} />
+      <Route path="/admin/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
 
-      <main className="main-content">
-        <ErrorBanner
-          error={students.error}
-          onDismiss={() => students.setError(null)}
-        />
-
-        <div className="setup-workflow">
-          <div className="workflow-step">
-            <h2>Step 1: Select or Create Class</h2>
-            <ClassSelector
-              currentClass={classes.currentClass}
-              availableClasses={classes.availableClasses}
-              newClassName={classes.newClassName}
-              onClassChange={handleClassChange}
-              onNewClassNameChange={classes.setNewClassName}
-              onCreateNewClass={handleCreateNewClass}
-              onFindClass={handleFindClass}
-            />
-          </div>
-
-          <div className="workflow-step">
-            <h2>Step 2: Subject & Excel Upload</h2>
-            <ExcelUploader
-              currentClass={classes.currentClass}
-              currentSubject={classes.currentSubject}
-              availableSubjects={classes.availableSubjects}
-              onSubjectChange={classes.setCurrentSubject}
-              onExcelUpload={handleFileUpload}
-              isUploading={isUploading}
-              onAddSubject={classes.addSubject}
-            />
-          </div>
-        </div>
-
-        <Stats {...statsData} currentClass={classes.currentClass} />
-
-        <StudentTable
-          students={students.students}
-          onStatusChange={handleStatusChange}
-          onRemarkChange={handleRemarkChange}
-          selectedStudent={selectedStudent}
-          onSelectStudent={handleScanRequest}
-          onGeneratePDF={handleGeneratePDF}
-          onDeletePDF={handleDeletePDF}
-          isExcelUploaded={isExcelUploaded}
-          loading={students.loading}
-          currentPage={currentPage}
-          totalPages={students.totalPages}
-          totalStudents={students.totalStudents}
-          itemsPerPage={itemsPerPage}
-          onPageChange={handlePageChange}
-          onItemsPerPageChange={handleItemsPerPageChange}
-          currentClass={classes.currentClass}
-        />
-
-        {showPhotoCapture && selectedStudent && (
-          <Suspense
-            fallback={
-              <div className="photo-capture-overlay">
-                <div className="photo-capture-modal">
-                  <div style={{ padding: "20px", textAlign: "center" }}>
-                    <div className="spinner"></div>
-                    <p>Loading camera...</p>
-                  </div>
-                </div>
-              </div>
-            }
-          >
-            <PhotoCapture
-              student={selectedStudent}
-              capturedPhotos={capturedPhotos}
-              onPhotosUpdate={setCapturedPhotos}
-              onFinish={handlePhotosCaptured}
-              onClose={() => {
-                setShowPhotoCapture(false);
-                setSelectedStudent(null);
-                setCapturedPhotos([]);
-              }}
-              onNextStudent={handleNextStudent}
-              onMarkAsAbsent={handleMarkAsAbsent}
-              onMarkAsMissing={handleMarkAsMissing}
-              hasNextStudent={hasNextStudent}
-              currentClass={classes.currentClass}
-            />
-          </Suspense>
-        )}
-      </main>
-    </div>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

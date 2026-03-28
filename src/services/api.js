@@ -6,13 +6,19 @@ const API_BASE =
   'http://localhost:5002/api';
 
 class ApiService {
+  getBackendRoot() {
+    return API_BASE.replace('/api', '');
+  }
+
   async request(endpoint, options = {}) {
     const url = `${API_BASE}${endpoint}`;
 
     const isFormData = options.body instanceof FormData;
-    // ✅ Multi-Tenant: Inject Tenant ID and Auth Token
+    // ✅ Multi-Tenant: Inject Tenant ID and Auth Token from localStorage
     const tenantId = localStorage.getItem('tenantId');
     const token = localStorage.getItem('token');
+
+    console.log('[API] Request to:', endpoint, '| tenantId:', tenantId);
 
     const headers = { ...options.headers };
     if (!isFormData) headers['Content-Type'] = 'application/json';
@@ -64,7 +70,7 @@ class ApiService {
   }
 
   async createUniversity(name, universityCode, password) {
-    return this.request('/universities/create', {
+    return this.request('/admin/create-university', {
       method: 'POST',
       body: { name, universityCode, password }
     });
@@ -85,10 +91,10 @@ class ApiService {
     });
   }
 
-  async login(email, password) {
+  async login(username, password) {
     return this.request('/auth/login', {
       method: 'POST',
-      body: { email, password }
+      body: { username, password }
     });
   }
 
@@ -121,6 +127,19 @@ class ApiService {
     });
   }
 
+  // ✅ NEW: Specifically isolated reset system for standard university users
+  async resetUniversityUserPassword(payload) {
+    return this.request('/university/reset-password', {
+      method: 'POST',
+      body: payload
+    });
+  }
+
+  // ✅ NEW: Fetch remote users assigned explicitly mapping over a particular tenant
+  async getUniversityUsers(universityCode) {
+    return this.request(`/universities/users?university=${universityCode}`);
+  }
+
   // ✅ NEW: Get all available classes
   async getClasses() {
     return this.request('/students/classes');
@@ -145,6 +164,39 @@ class ApiService {
     return this.request('/students/subjects', {
       method: 'POST',
       body: { className, subjectCode }
+    });
+  }
+
+  // ✅ FIXED: Fetch scanned copies for a class/subject
+  async getCopies(className, subject = '') {
+    return this.request('/getCopies', {
+      method: 'POST',
+      body: { className, ...(subject && { subject }) }
+    });
+  }
+
+  // ✅ NEW: Get paper config for class/subject
+  async getPaperConfig(className, subjectCode) {
+    const query = new URLSearchParams({ className, subjectCode }).toString();
+    return this.request(`/papers/config?${query}`);
+  }
+
+  // ✅ NEW: Get all papers for a class (Question Papers or Answer Templates)
+  async getPapers(className, type = 'question-paper') {
+    const query = new URLSearchParams({ className, type }).toString();
+    const endpoint = type === 'answer-template' ? '/papers/answer-templates' : '/papers/question-papers';
+    return this.request(`${endpoint}?${query}`);
+  }
+
+  /**
+   * ✅ NEW: Upload paper config with files (Question Paper PDF & Answer Template)
+   * formData should include questionPaper and answerTemplate files if selected
+   */
+  async savePaperConfig(formData) {
+    console.log('📤 Uploading paper configuration and files...');
+    return this.request('/papers/upload', {
+      method: 'POST',
+      body: formData // multipart/form-data
     });
   }
 
@@ -175,36 +227,23 @@ class ApiService {
     });
   }
 
-  // ✅ FIXED: Excel Upload with proper class name handling
+  // ✅ FIXED: Routes through centralized request() so x-tenant-id is always injected
   async uploadExcelWithClass(formData, className = 'default') {
-    try {
-      console.log('📤 Uploading Excel file for class:', className);
+    console.log('📤 Uploading Excel file for class:', className);
 
-      // ✅ FIX: Remove duplicate className and add only once
-      if (formData.has('className')) {
-        formData.delete('className');
-      }
-
-      if (className && className !== 'default') {
-        formData.append('className', className);
-      }
-
-      const response = await fetch(`${API_BASE}/students/upload-excel`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Excel upload failed');
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Excel upload API error:', error);
-      throw error;
+    // Ensure className is appended once cleanly
+    if (formData.has('className')) {
+      formData.delete('className');
     }
+    if (className && className !== 'default') {
+      formData.append('className', className);
+    }
+
+    // ✅ Use this.request() — NOT raw fetch — so the interceptor injects x-tenant-id header
+    return this.request('/students/upload-excel', {
+      method: 'POST',
+      body: formData, // FormData is detected by `isFormData` check; Content-Type is NOT set manually
+    });
   }
 
   // ✅ UPDATED: Delete student with class & subject
@@ -224,32 +263,18 @@ class ApiService {
 
   // ✅ FIXED: Upload scans with class & subject
   async uploadScans(studentId, formData, className = 'default', subject = '') {
-    // ✅ FIX: Remove duplicate className and add only once
-    if (formData.has('className')) {
-      formData.delete('className');
-    }
-    if (formData.has('subject')) {
-      formData.delete('subject');
-    }
+    // Clean up duplicate fields before sending
+    if (formData.has('className')) formData.delete('className');
+    if (formData.has('subject')) formData.delete('subject');
 
-    if (className && className !== 'default') {
-      formData.append('className', className);
-    }
-    if (subject) {
-      formData.append('subject', subject);
-    }
+    if (className && className !== 'default') formData.append('className', className);
+    if (subject) formData.append('subject', subject);
 
-    const response = await fetch(`${API_BASE}/upload/scan/${studentId}`, {
+    // ✅ FIXED: Use this.request() so x-tenant-id header is injected automatically
+    return this.request(`/upload/scan/${studentId}`, {
       method: 'POST',
-      body: formData,
+      body: formData, // FormData detected by isFormData check — browser sets multipart boundary
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Upload failed');
-    }
-
-    return response.json();
   }
 
   // ✅ UPDATED: Delete scans with class & subject
@@ -260,29 +285,36 @@ class ApiService {
     });
   }
 
-  // ✅ UPDATED: Generate PDF with class & subject
+  // ✅ FIXED: Generate PDF with class & subject — injects x-tenant-id manually (blob response)
   async generatePDF(studentId, className = 'default', subject = '') {
     try {
       const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
-      const response = await fetch(`${API_BASE}/students/${studentId}/generate-pdf?${query}`);
+
+      // ✅ Build headers the same way request() does, so x-tenant-id is always present
+      const tenantId = localStorage.getItem('tenantId');
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (tenantId) headers['x-tenant-id'] = tenantId;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      console.log('[API] generatePDF | tenantId:', tenantId);
+
+      const response = await fetch(`${API_BASE}/students/${studentId}/generate-pdf?${query}`, { headers });
 
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'PDF generation failed');
       }
 
-      // Get filename from response headers or create default
+      // Parse Content-Disposition for filename
       const contentDisposition = response.headers.get('content-disposition');
       let filename = `Copy_${studentId}.pdf`;
-
       if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-        if (filenameMatch) {
-          filename = filenameMatch[1];
-        }
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match) filename = match[1];
       }
 
-      // Handle file download
+      // Trigger browser download
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -293,10 +325,7 @@ class ApiService {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      return {
-        success: true,
-        filename: filename
-      };
+      return { success: true, filename };
     } catch (error) {
       console.error('PDF download error:', error);
       throw error;
@@ -464,7 +493,7 @@ const createApiServiceWithErrorHandling = () => {
     get(target, prop) {
       const value = target[prop];
 
-      if (typeof value === 'function') {
+      if (typeof value === 'function' && prop !== 'getBackendRoot') {
         return async function (...args) {
           try {
             console.log(`🔄 API Call: ${prop}`, args.length > 0 ? args[0] : '');

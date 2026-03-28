@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import api from '../services/api';
 
 const TenantContext = createContext();
@@ -17,45 +17,64 @@ export const TenantProvider = ({ children }) => {
   const selectTenant = (newTenantId) => {
     setTenantId(newTenantId);
     localStorage.setItem('tenantId', newTenantId);
-    // Clearing token when changing tenant
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
   };
 
-  const login = async (email, password) => {
-    const res = await api.login(email, password);
-    if (res.success && res.data) {
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data));
-      setUser(res.data);
-      return res;
+  const login = async (identifier, password, roleType = 'user') => {
+    try {
+      if (roleType === 'admin') {
+        const res = await api.adminLogin(identifier, password);
+        if (res.success && res.token) {
+          // Normalize the response to match the user API format
+          const adminData = { email: identifier, role: 'admin', name: 'Master Admin', token: res.token };
+          localStorage.setItem('token', res.token);
+          localStorage.setItem('user', JSON.stringify(adminData));
+          setUser(adminData);
+          return { success: true, data: adminData };
+        }
+        throw new Error(res.message || 'Admin login failed');
+      } else {
+        const res = await api.login(identifier, password);
+        if (res.success && res.data) {
+          const userData = res.data;
+          localStorage.setItem('token', userData.token);
+          localStorage.setItem('user', JSON.stringify(userData));
+          // ✅ CRITICAL FIX: Save university code as tenantId for all subsequent API calls
+          if (userData.university) {
+            localStorage.setItem('tenantId', userData.university);
+            setTenantId(userData.university);
+            console.log('[TENANT] tenantId set from login:', userData.university);
+          }
+          setUser(userData);
+          return res;
+        }
+        throw new Error(res.message || 'User login failed');
+      }
+    } catch (err) {
+      throw err;
     }
-    throw new Error(res.message || 'Login failed');
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    // We optionally keep tenantId selected
+    localStorage.clear();
     setUser(null);
+    setTenantId(null);
+    window.location.href = '/login';
   };
 
   const clearTenant = () => {
     localStorage.removeItem('tenantId');
     setTenantId(null);
-    logout();
   };
 
-  useEffect(() => {
-    // If we have a user but no tenantId somehow, clear login
-    if (user && !tenantId) {
-      logout();
-    }
-  }, [user, tenantId]);
-
   return (
-    <TenantContext.Provider value={{ tenantId, selectTenant, clearTenant, user, login, logout }}>
+    <TenantContext.Provider value={{ 
+      tenantId, 
+      selectTenant, 
+      clearTenant, 
+      user, 
+      login, 
+      logout 
+    }}>
       {children}
     </TenantContext.Provider>
   );

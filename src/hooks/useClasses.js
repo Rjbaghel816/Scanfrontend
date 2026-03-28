@@ -187,11 +187,12 @@ export const useClasses = () => {
 
   return {
     currentClass,
+    setCurrentClass, // ✅ Exported directly for consumers that call it by name
     availableClasses,
     newClassName,
     setNewClassName,
     createNewClass,
-    changeClass,
+    changeClass,    // Alias for setCurrentClass with side-effect handling
     getClassDisplayName,
     fetchAvailableClasses,
     currentSubject,

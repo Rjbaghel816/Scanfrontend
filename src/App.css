@@ -795,8 +795,75 @@
   transition: color 0.2s;
   font-size: 0.95rem;
 }
-.btn-text-link:hover {
-  color: #667eea;
+.session-expired-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #f1f5f9;
+  padding: 20px;
+}
+
+.session-card {
+  background: white;
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+}
+
+.icon-box {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.session-card h2 {
+  font-size: 24px;
+  color: #1e293b;
+  margin-bottom: 12px;
+}
+
+.session-card p {
+  color: #64748b;
+  margin-bottom: 30px;
+  line-height: 1.5;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-primary {
+  padding: 12px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.btn-secondary {
+  padding: 12px;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: #f1f5f9;
 }
 
 .alert-error {
