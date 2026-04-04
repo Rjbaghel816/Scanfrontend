@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTenant } from '../context/TenantContext';
 import api from '../services/api';
 import './UniversitySelection.css';
 
@@ -62,14 +64,21 @@ const UniversitySelection = () => {
     }
   }, [selectedClass]);
 
+  const { selectTenant } = useTenant();
+  const navigate = useNavigate();
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!selectedUni || !selectedClass || !selectedSubject) {
-      alert('Please complete all selections');
+    if (!selectedUni) {
+      alert('Please select a university');
       return;
     }
-    console.log('Final Selection:', { selectedUni, selectedClass, selectedSubject });
-    alert(`Selection Confirmed: ${selectedUni} - ${selectedClass} - ${selectedSubject}`);
+    
+    // Save selection
+    selectTenant(selectedUni);
+    
+    console.log('Final Selection:', { selectedUni });
+    navigate('/login');
   };
 
   return (

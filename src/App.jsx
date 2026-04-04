@@ -16,17 +16,39 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
-  const { user } = useTenant();
+  const { user, tenantId, isInitialized } = useTenant();
+  const location = useLocation();
+
+  if (!isInitialized) {
+    return <div className="loading-screen">Initializing session...</div>;
+  }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // ✅ REQUIREMENT: Force university selection before accessing protected features
+  if (!tenantId && location.pathname !== '/university') {
+    console.warn('[AUTH] Missing tenantId, redirecting to University Selection');
+    return <Navigate to="/university" replace />;
   }
 
   return <MainLayout>{children}</MainLayout>;
 };
 
 function App() {
-  const { user } = useTenant();
+  const { user, isInitialized } = useTenant();
+
+  // ✅ CRITICAL: Prevent ANY component or hook from mounting until Tenant context is ready
+  if (!isInitialized) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb', color: '#374151', fontFamily: 'Inter, sans-serif' }}>
+        <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid #e1e4e8', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+        <p style={{ marginTop: '16px', fontWeight: '500' }}>Initializing Digital Evaluation System...</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   return (
     <Routes>

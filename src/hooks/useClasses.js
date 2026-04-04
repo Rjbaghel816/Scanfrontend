@@ -3,10 +3,12 @@
  * Handles class-related state and API operations
  */
 import { useState, useEffect, useCallback } from 'react';
+import { useTenant } from '../context/TenantContext'; // ✅ NEW: Use central context
 import apiService from '../services/api';
 
 export const useClasses = () => {
-  const [currentClass, setCurrentClass] = useState('default');
+  const { tenantId } = useTenant(); 
+  const [currentClass, setCurrentClass] = useState('');
   const [availableClasses, setAvailableClasses] = useState([]);
   const [newClassName, setNewClassName] = useState('');
   const [currentSubject, setCurrentSubject] = useState('');
@@ -15,8 +17,11 @@ export const useClasses = () => {
 
   // Fetch available classes
   const fetchAvailableClasses = useCallback(async () => {
-    const tenantId = localStorage.getItem('tenantId');
-    if (!tenantId) return;
+    // ✅ Use context-aware tenantId
+    if (!tenantId) {
+      setAvailableClasses([]);
+      return;
+    }
 
     try {
       const response = await apiService.getClasses();
@@ -27,12 +32,11 @@ export const useClasses = () => {
       console.error("Failed to fetch classes gracefully:", error);
       setAvailableClasses([]); // Fallback to empty array
     }
-  }, []);
+  }, [tenantId]); // Dependency on tenantId
 
   // ✅ NEW: Fetch subjects for current class
   const fetchSubjects = useCallback(async (className) => {
-    const tenantId = localStorage.getItem('tenantId');
-    if (!tenantId || !className || className === 'default') {
+    if (!tenantId || !className || className === 'default' || className === '') {
       setAvailableSubjects([]);
       return;
     }
@@ -55,21 +59,20 @@ export const useClasses = () => {
     } finally {
       setIsLoadingSubjects(false);
     }
-  }, [currentSubject]);
+  }, [tenantId, currentSubject]); // Depend on tenantId
 
-  // Load classes on mount
+  // Load classes on mount AND when tenant changes
   useEffect(() => {
     fetchAvailableClasses();
   }, [fetchAvailableClasses]);
 
-  // ✅ NEW: Fetch subjects whenever class changes
+  // ✅ NEW: Fetch subjects whenever class or tenant changes
   useEffect(() => {
     fetchSubjects(currentClass);
   }, [currentClass, fetchSubjects]);
 
   // ✅ NEW: Search and select a class directly
   const searchClass = useCallback(async (className) => {
-    const tenantId = localStorage.getItem('tenantId');
     if (!tenantId) return { success: false, error: "Multi-tenant context missing" };
     if (!className || !className.trim()) return { success: false, error: "Enter class code" };
     
@@ -99,10 +102,14 @@ export const useClasses = () => {
       console.error("Search class failed:", error);
       return { success: false, error: "Search failed" };
     }
-  }, [availableClasses]);
+  }, [tenantId, availableClasses]); // Depend on tenantId
 
   // ✅ FIXED: Create new class — NO PREFIX
   const createNewClass = useCallback(async () => {
+    if (!tenantId) {
+      return { success: false, error: "Multi-tenant context missing" };
+    }
+    
     if (!newClassName.trim()) {
       return { success: false, error: "Please enter a class name" };
     }

@@ -14,14 +14,36 @@ class ApiService {
     const url = `${API_BASE}${endpoint}`;
 
     const isFormData = options.body instanceof FormData;
-    // ✅ Multi-Tenant: Inject Tenant ID and Auth Token from localStorage
+    
+    // ✅ Multi-Tenant: Fetch Tenant ID and Auth Token from localStorage
     const tenantId = localStorage.getItem('tenantId');
     const token = localStorage.getItem('token');
 
-    console.log('[API] Request to:', endpoint, '| tenantId:', tenantId);
+    // Define endpoints that do NOT require a tenant ID (Public or Global Admin routes)
+    const publicEndpoints = [
+      '/auth/login',
+      '/admin/login',
+      '/universities',
+      '/health',
+      '/admin/send-otp',
+      '/admin/verify-otp',
+      '/admin/reset-password'
+    ];
+
+    const isPublic = publicEndpoints.some(path => endpoint.startsWith(path));
+
+    // ✅ REQUIREMENT: Throw proper readable error if tenantId is missing for non-public routes
+    if (!tenantId && !isPublic) {
+      console.error(`[API ERROR] Missing tenantId for endpoint: ${endpoint}`);
+      throw new Error('University/Tenant context is missing. Please select a University from the portal.');
+    }
+
+    console.log(`[API] ${options.method || 'GET'} to:`, endpoint, '| tenantId:', tenantId);
 
     const headers = { ...options.headers };
     if (!isFormData) headers['Content-Type'] = 'application/json';
+    
+    // ✅ REQUIREMENT: Ensure x-tenant-id header is included automatically
     if (tenantId) headers['x-tenant-id'] = tenantId;
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -43,6 +65,10 @@ class ApiService {
         const data = await response.json();
 
         if (!response.ok) {
+          // Special handling for multi-tenant errors from backend
+          if (response.status === 400 && data.message?.includes('tenant')) {
+            throw new Error('Session Expired: Please select your university again.');
+          }
           throw new Error(data.message || 'API request failed');
         }
 
@@ -53,7 +79,7 @@ class ApiService {
             const errorData = await response.json();
             throw new Error(errorData.message || 'Download failed');
           } catch {
-            throw new Error('Download failed');
+            throw new Error(`Request failed with status ${response.status}`);
           }
         }
         return response;
@@ -167,11 +193,11 @@ class ApiService {
     });
   }
 
-  // ✅ FIXED: Fetch scanned copies for a class/subject
-  async getCopies(className, subject = '') {
+  // ✅ FIXED: Fetch scanned copies for a class/subject with optional reviewStatus filter
+  async getCopies(className, subject = '', reviewStatus = '') {
     return this.request('/getCopies', {
       method: 'POST',
-      body: { className, ...(subject && { subject }) }
+      body: { className, ...(subject && { subject }), ...(reviewStatus && { reviewStatus }) }
     });
   }
 
@@ -393,10 +419,25 @@ class ApiService {
     }
   }
 
-  // ✅ UPDATED: Get stats with class & subject
+  // ✅ UPDATED: Get stats with class & subject (Includes Review tracking counts)
   async getStats(className = 'default', subject = '') {
     const query = new URLSearchParams({ className, ...(subject && { subject }) }).toString();
     return this.request(`/students/stats/summary?${query}`);
+  }
+
+  // ✅ NEW: Review Tracking APIs
+  async markAsViewed(id, className = 'default') {
+    return this.request(`/copy/${id}/view`, {
+      method: 'PATCH',
+      body: { className }
+    });
+  }
+
+  async markProblem(id, className = 'default', problemNote = '') {
+    return this.request(`/copy/${id}/problem`, {
+      method: 'PATCH',
+      body: { className, problemNote }
+    });
   }
 
   // ✅ NEW: Get PDF info with class & subject
